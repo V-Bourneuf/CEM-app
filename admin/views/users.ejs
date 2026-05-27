@@ -1,0 +1,46 @@
+<%- include('_header') %>
+
+<h2>Provisioned users</h2>
+<p class="muted">Read-only. Users are created by Okta SCIM provisioning. Grants are managed by Okta Entitlement Management policies.</p>
+
+<% if (users.length === 0) { %>
+    <div class="empty-state">
+        No users yet. Configure SCIM provisioning in Okta and assign a user to this app.
+        <br><small>SCIM Base URL: <code><%= '/scim/v2' %></code></small>
+    </div>
+<% } else { %>
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Grants</th>
+            <th>Last updated</th>
+        </tr>
+    </thead>
+    <tbody>
+    <% users.forEach(function(u) { %>
+        <tr>
+            <td><code><%= u.user_name %></code></td>
+            <td><%= [u.given_name, u.family_name].filter(Boolean).join(' ') || '—' %></td>
+            <td><%= u.email || '—' %></td>
+            <td><span class="badge <%= u.active ? 'status-active' : 'status-inactive' %>"><%= u.active ? 'active' : 'inactive' %></span></td>
+            <td>
+                <% if (u.grants.length === 0) { %>
+                    <span class="muted">—</span>
+                <% } else { %>
+                    <% u.grants.forEach(function(g) { %>
+                        <span class="badge type-<%= g.type %>" title="<%= g.value %>"><%= g.display_name %></span>
+                    <% }) %>
+                <% } %>
+            </td>
+            <td class="muted"><%= u.updated_at %></td>
+        </tr>
+    <% }) %>
+    </tbody>
+</table>
+<% } %>
+
+<%- include('_footer') %>

@@ -1,0 +1,35 @@
+<%- include('_header') %>
+
+<h2>Dashboard</h2>
+
+<div class="card-grid">
+    <div class="stat-card">
+        <div class="stat-num"><%= counts.roles %></div>
+        <div class="stat-label">Role entitlements</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-num"><%= counts.access %></div>
+        <div class="stat-label">Access entitlements</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-num"><%= counts.users %></div>
+        <div class="stat-label">Total provisioned users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-num"><%= counts.active %></div>
+        <div class="stat-label">Active users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-num"><%= counts.grants %></div>
+        <div class="stat-label">Total grants</div>
+    </div>
+</div>
+
+<h3>Quick links</h3>
+<ul class="link-list">
+    <li><a href="/admin/entitlements">Manage entitlement catalog →</a></li>
+    <li><a href="/admin/users">View provisioned users →</a></li>
+    <li><a href="/scim/v2/Entitlements" target="_blank">Inspect SCIM Entitlements endpoint ↗</a> <small>(needs bearer token)</small></li>
+</ul>
+
+<%- include('_footer') %>

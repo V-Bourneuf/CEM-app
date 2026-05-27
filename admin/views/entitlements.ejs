@@ -1,0 +1,54 @@
+<%- include('_header') %>
+
+<h2>Edit entitlement</h2>
+<p class="muted">
+    Editing <code><%= editing.id %></code> — currently in the <strong><%= editing.profile || '(no profile)' %></strong> profile.
+    Changes are immediately reflected in the SCIM <code>/Roles</code> and <code>/Entitlements</code> endpoints. Okta will pick them up on its next sync.
+</p>
+
+<% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
+
+<section class="form-card">
+    <form method="post" action="/admin/entitlements/<%= editing.id %>">
+        <div class="form-row">
+            <label>ID (slug, immutable)
+                <input type="text" name="id" value="<%= editing.id %>" readonly>
+            </label>
+            <label>Type
+                <select name="type" required>
+                    <% ['role','access'].forEach(t => { %>
+                        <option value="<%= t %>" <%= editing.type === t ? 'selected' : '' %>><%= t %></option>
+                    <% }) %>
+                </select>
+            </label>
+        </div>
+        <div class="form-row">
+            <label>Display name
+                <input type="text" name="displayName" required value="<%= editing.display_name %>">
+            </label>
+            <label>Value (external)
+                <input type="text" name="value" required value="<%= editing.value %>">
+            </label>
+        </div>
+        <div class="form-row">
+            <label>Column hint (UI grouping, optional)
+                <input type="text" name="columnHint" value="<%= editing.column_hint || '' %>" placeholder="e.g. devOps">
+            </label>
+            <label>Description
+                <input type="text" name="description" value="<%= editing.description || '' %>">
+            </label>
+        </div>
+        <div class="form-row">
+            <label class="ent-add-checkbox">
+                <input type="checkbox" name="grantsAdmin" <%= editing.grants_admin ? 'checked' : '' %>>
+                Grants /admin access — when granted to a user, they can access the admin UI
+            </label>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="/admin/profiles" class="btn">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<%- include('_footer') %>

@@ -1,0 +1,132 @@
+<%- include('_header') %>
+
+<h2>Entitlement catalog</h2>
+<p class="muted">
+    The catalog is organized into <strong>profiles</strong> — curated bundles of roles + access for each Salteau business unit.
+    Enable a profile to add its entitlements to the live catalog. <strong>Only enabled profiles' entitlements are
+    discoverable by Okta</strong> through the SCIM <code>/Roles</code> and <code>/Entitlements</code> endpoints.
+    Once a profile is enabled, you can edit, delete, or add custom entitlements to it.
+</p>
+
+<% if (flash) { %><div class="flash success"><%= flash %></div><% } %>
+<% if (error) { %><div class="flash error"><%= error %></div><% } %>
+
+<div class="profile-grid">
+    <% profiles.forEach(p => { %>
+        <div class="profile-card <%= p.active ? 'profile-card--active' : '' %>" id="profile-<%= p.id %>">
+            <div class="profile-card-head">
+                <h3>
+                    <%= p.name %>
+                    <% if (p.id === 'administration') { %><span class="ent-tag ent-tag--admin" title="Holds entitlements that grant /admin access">admin</span><% } %>
+                </h3>
+                <span class="profile-status <%= p.active ? 'on' : 'off' %>">
+                    <%= p.active ? 'Active' : 'Inactive' %>
+                </span>
+            </div>
+
+            <p class="profile-desc"><%= p.description %></p>
+
+            <div class="profile-stats">
+                <span><strong><%= p.roleCount %></strong>/<%= p.expectedRoleCount %> roles</span>
+                <span><strong><%= p.accessCount %></strong>/<%= p.expectedAccessCount %> access</span>
+                <% if (!p.active) { %>
+                    <span class="muted-inline">— not visible to Okta</span>
+                <% } else { %>
+                    <span class="muted-inline">— discoverable by Okta</span>
+                <% } %>
+            </div>
+
+            <% if (p.active) { %>
+                <!-- Live entitlements management (only when profile is enabled) -->
+                <details class="profile-entitlements" open>
+                    <summary>Manage entitlements (<%= p.liveEntitlements.length %>)</summary>
+                    <ul class="ent-table">
+                        <% p.liveEntitlements.forEach(e => { %>
+                            <li class="ent-row">
+                                <span class="ent-tag ent-tag--<%= e.type %>"><%= e.type %></span>
+                                <span class="ent-display"><%= e.display_name %></span>
+                                <% if (e.grants_admin) { %><span class="ent-tag ent-tag--admin" title="Granting this gives the user /admin access">admin</span><% } %>
+                                <code class="ent-value"><%= e.value %></code>
+                                <span class="ent-actions">
+                                    <a href="/admin/entitlements/<%= encodeURIComponent(e.id) %>/edit" class="btn-link">Edit</a>
+                                    <form method="POST" action="/admin/entitlements/<%= encodeURIComponent(e.id) %>/delete"
+                                          style="display:inline;margin:0"
+                                          onsubmit="return confirm('Delete &quot;<%= e.display_name %>&quot;? Removes any user grants on it.');">
+                                        <button type="submit" class="btn-link btn-link--danger">Delete</button>
+                                    </form>
+                                </span>
+                            </li>
+                        <% }) %>
+                    </ul>
+
+                    <details class="add-entitlement-toggle">
+                        <summary>+ Add a custom entitlement to this profile</summary>
+                        <form method="POST" action="/admin/profiles/<%= p.id %>/entitlements" class="ent-add-form">
+                            <div class="ent-add-row">
+                                <label>Type
+                                    <select name="type" required>
+                                        <option value="role">role</option>
+                                        <option value="access" selected>access</option>
+                                    </select>
+                                </label>
+                                <label>Display name
+                                    <input type="text" name="displayName" required placeholder="e.g. Approve invoice">
+                                </label>
+                                <label>Value (snake_case)
+                                    <input type="text" name="value" required placeholder="approve_invoice" pattern="[a-zA-Z0-9_\-]+">
+                                </label>
+                            </div>
+                            <div class="ent-add-row">
+                                <label>Slug (optional, autoderived from display name)
+                                    <input type="text" name="id" placeholder="approve-invoice" pattern="[a-z0-9\-]*">
+                                </label>
+                                <label>Column hint (optional)
+                                    <input type="text" name="columnHint" placeholder="finance">
+                                </label>
+                                <label class="ent-add-checkbox">
+                                    <input type="checkbox" name="grantsAdmin">
+                                    Grants /admin access
+                                </label>
+                            </div>
+                            <label>Description (optional)
+                                <input type="text" name="description" placeholder="One-line description">
+                            </label>
+                            <button type="submit" class="btn btn-primary">Add entitlement</button>
+                        </form>
+                    </details>
+                </details>
+            <% } else { %>
+                <!-- Read-only template preview when inactive -->
+                <details class="profile-entitlements">
+                    <summary>Preview <%= p.templateEntitlements.length %> template entitlements</summary>
+                    <ul class="ent-table ent-table--preview">
+                        <% p.templateEntitlements.forEach(e => { %>
+                            <li class="ent-row">
+                                <span class="ent-tag ent-tag--<%= e.type %>"><%= e.type %></span>
+                                <span class="ent-display"><%= e.display_name %></span>
+                                <% if (e.grants_admin) { %><span class="ent-tag ent-tag--admin">admin</span><% } %>
+                                <code class="ent-value"><%= e.value %></code>
+                            </li>
+                        <% }) %>
+                    </ul>
+                    <p class="muted-inline">Enable this profile to manage these entitlements (and add your own).</p>
+                </details>
+            <% } %>
+
+            <div class="profile-actions">
+                <% if (p.active) { %>
+                    <form method="POST" action="/admin/profiles/<%= p.id %>/disable"
+                          onsubmit="return confirm('Disable &quot;<%= p.name %>&quot;? Removes <%= p.roleCount + p.accessCount %> entitlements + any grants on them. This cannot be undone.');">
+                        <button type="submit" class="btn btn-danger">Disable profile</button>
+                    </form>
+                <% } else { %>
+                    <form method="POST" action="/admin/profiles/<%= p.id %>/enable">
+                        <button type="submit" class="btn btn-primary">Enable profile</button>
+                    </form>
+                <% } %>
+            </div>
+        </div>
+    <% }) %>
+</div>
+
+<%- include('_footer') %>
