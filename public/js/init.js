@@ -1,130 +1,67 @@
 $(document).ready(function () {
-    // Example HTML content to populate the user_info div
-    const userInfoHtml = `
-        <p><b> ${user.firstName} ${user.lastName}</b><br/> ${user.email}</p>
-    `;
+    // ---------- header: who's logged in ----------
+    $('#user_info').html(`
+        <p><b>${user.firstName || ''} ${user.lastName || ''}</b><br/>${user.email || ''}</p>
+    `);
 
-    // Populate the user_info div
-    $('#user_info').html(userInfoHtml);
+    // ---------- normalize SAML attributes ----------
+    // Okta sends multi-valued attrs as arrays, single values as strings.
+    function asArray(v) {
+        if (v == null) return [];
+        return Array.isArray(v) ? v : [v];
+    }
+    const grantedRoles  = asArray(entitlements.role);
+    const grantedAccess = asArray(entitlements.access);
 
-    // Populate entitlements div with floating divs
-    // var keyCount = 0;
-    // for (const key in entitlements) {
-    //     keyCount++;
-    //     if (entitlements.hasOwnProperty(key)) {
-    //         // Create a wrapper div for the key and its items
-    //         const keyWrapperDiv = $(`<div class="entitlement-key-wrapper"></div>`);
+    // ---------- catalog lookups (catalog injected by server from catalog.js) ----------
+    const accessByValue = {};
+    accessCatalog.forEach(a => { accessByValue[a.value] = a; });
+    const roleByValue = {};
+    roleCatalog.forEach(r => { roleByValue[r.value] = r; });
 
-    //         // Create a group div for each entitlement key
-    //         const groupDiv = $(`<div class="entitlement-group">${key.charAt(0).toUpperCase() + key.slice(1).toLowerCase()}</div>`);
+    // ---------- render: role badges per column ----------
+    function roleBadgeFor(roleValue) {
+        const meta = roleByValue[roleValue];
+        const label = meta ? meta.displayName : roleValue;
+        return $('<div>').addClass('role-value').text(label);
+    }
 
-    //         // Add individual items as floating divs
-    //         let item_container = "<div class'item-container'>"
-           
-            
-    //         entitlements[key].forEach(item => {
-    //             const itemDiv = `<div class="entitlement-item var${keyCount}"><p>${item.toUpperCase()}</p></div>`;
-    //             item_container+=itemDiv;
-    //         });
-    //         item_container+="</div>";
-            
-    //         // Append the group div to the key wrapper div
-    //         keyWrapperDiv.append(groupDiv);
-    //         keyWrapperDiv.append(item_container);
-    //         // Append the key wrapper div to the entitlements element
-    //         $('#entitlements').append(keyWrapperDiv);
-    //     }
-    // }
-   
-            // Define specific accesses for each role
-            const roleAccesses = {
-                'payable': ['credit', 'payment'],
-                'purchase': ['cancel', 'purchase', 'return'],
-                'Software Dev': ['create_feature_branche', 'view_build_status'],
-                'DevOps Engineering': ['deploy_code_to_prod', 'manage_prod_environment', 'modify_deployment_pipelines','restart_prod_services']
-            };
+    grantedRoles.forEach(role => {
+        const lower = String(role).toLowerCase();
+        if (lower.includes('devops') || lower.includes('operations')) {
+            $('#devOpsContainer').append(roleBadgeFor(role));
+        } else {
+            $('#softwareDevContainer').append(roleBadgeFor(role));
+        }
+    });
 
-            // Function to create role div
-            let count = 0;
-            function createRoleDiv(role, accesses, showRoleName = true) {
+    // ---------- render: access pills per column, driven by SAML, not hardcoded ----------
+    function accessPillFor(accessValue) {
+        const meta  = accessByValue[accessValue];
+        const label = meta ? meta.displayName : accessValue; // unknown values still render
+        return $('<span>').addClass('access-item').text(label);
+    }
 
-                const roleDiv = $('<div>').addClass("role-div");
+    const buckets = { softwareDev: [], devOps: [], unknown: [] };
+    grantedAccess.forEach(value => {
+        const meta = accessByValue[value];
+        const col  = (meta && meta.column) || 'unknown';
+        (buckets[col] || buckets.unknown).push(value);
+    });
 
-                // Only show role name if specified
-                if (showRoleName) {
-                    // Create role title
-                    const roleTitle = $('<div>').addClass('role-title');
+    function renderAccessGroup($container, values) {
+        if (!values.length) {
+            $container.append($('<div>').addClass('no-access-message').text('No access granted'));
+            return;
+        }
+        const wrap = $('<div>').addClass('access-container');
+        wrap.append($('<div>').addClass('access-title').text('Access Permissions:'));
+        const list = $('<div>').addClass('access-list');
+        values.forEach(v => list.append(accessPillFor(v)));
+        wrap.append(list);
+        $container.append(wrap);
+    }
 
-                    // Create role value
-                    let targetclass = 'role-value';
-                    if(count>0)
-                        targetclass = 'role-value2';
-                    const roleValue = $('<div>').addClass(targetclass).text(role);
-
-                    roleDiv.append(roleTitle, roleValue);
-                }
-
-                let targetclass2 = 'access-container';
-                if(count>0)
-                    targetclass2 = 'access-container2';
-                // Create access container
-                const accessContainer = $('<div>').addClass(targetclass2);
-                const accessTitle = $('<div>').addClass('access-title').text('Access Permissions:');
-                const accessList = $('<div>').addClass('access-list');
-
-                // Add access items
-                accesses.forEach(function(access) {
-                    const accessItem = $('<span>').addClass('access-item').text(access);
-                    accessList.append(accessItem);
-                });
-
-                // Assemble the structure
-                accessContainer.append(accessTitle, accessList);
-                roleDiv.append(accessContainer);
-
-                return roleDiv;
-            }
-
-            // Track which columns have content
-            let hasSoftwareDev = false;
-            let hasDevOps = false;
-
-            // Generate role divs and distribute to columns
-            entitlements["role"].forEach(function(role) {
-                const accesses = roleAccesses[role] || [];
-                const roleLower = role.toLowerCase();
-
-                // Determine which column to append to and whether to show role name
-                let showRoleName = true;
-
-                if (roleLower.includes('devops') || roleLower.includes('operations')) {
-                    // Hide role name if it matches the column category
-                    showRoleName = false;
-                    const roleDiv = createRoleDiv(role, accesses, showRoleName);
-                    $('#devOpsContainer').append(roleDiv);
-                    hasDevOps = true;
-                } else if (roleLower.includes('software') || (roleLower.includes('dev') && !roleLower.includes('ops'))) {
-                    // Hide role name if it matches the column category
-                    showRoleName = false;
-                    const roleDiv = createRoleDiv(role, accesses, showRoleName);
-                    $('#softwareDevContainer').append(roleDiv);
-                    hasSoftwareDev = true;
-                } else {
-                    // Show role name for other roles
-                    const roleDiv = createRoleDiv(role, accesses, showRoleName);
-                    $('#softwareDevContainer').append(roleDiv);
-                }
-                count++;
-            });
-
-            // Show "no access" message for empty columns
-            if (!hasSoftwareDev) {
-                const noAccessDiv = $('<div>').addClass('no-access-message').text('No access granted');
-                $('#softwareDevContainer').append(noAccessDiv);
-            }
-
-            if (!hasDevOps) {
-                const noAccessDiv = $('<div>').addClass('no-access-message').text('No access granted');
-                $('#devOpsContainer').append(noAccessDiv);
-            }
+    renderAccessGroup($('#softwareDevContainer'), buckets.softwareDev.concat(buckets.unknown));
+    renderAccessGroup($('#devOpsContainer'),      buckets.devOps);
 });

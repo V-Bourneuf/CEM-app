@@ -1,232 +1,404 @@
-body {
-    font-family: 'Roboto', sans-serif;
-    background-color: #f8f9fa;
+/* ─────────────────────────────────────────────────────────────────────
+   CEM App — minimalist, Okta-inspired stylesheet
+   Used by login.ejs and dashboard.ejs.
+   ───────────────────────────────────────────────────────────────────── */
+
+:root {
+    --okta-blue:        #007dc1;
+    --okta-blue-dark:   #00598a;
+    --okta-blue-soft:   #e6f3fb;
+    --okta-ink:         #1d1d1d;
+    --okta-ink-muted:   #5e6166;
+    --okta-line:        #e1e1e1;
+    --okta-bg:          #fafafa;
+    --okta-card:        #ffffff;
+    --granted-green:    #2e8b57;
+    --granted-bg:       #ecf8f1;
+    --warning-amber:    #b86b00;
+    --code-bg:          #f3f4f6;
+    --shadow-sm:        0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
+    --shadow-md:        0 8px 24px rgba(15,23,42,0.08);
+    --radius:           8px;
+    --radius-lg:        12px;
 }
 
-.container{
-    padding:50px;
-}
-#user_info{
-    font-size: 1.2em;
-    position:absolute;
-    right:70px
-}
-apptitle{
-    font-size: 1.8em;
-    padding:0 20px;
-    float:left
-}
-        .app-header {
-            display: flex;
-            align-items: center;
-            background-color:#e9ecef;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin: 50px 50px 0 50px;
-            border-left: 4px solid #007bff;
-        }
-        
-        .app-icon {
-            width: 64px;
-            height: 64px;
-            margin-right: 20px;
-            border-radius: 8px;
-        }
-.logout-btn {
-    display: inline-block;
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    padding: 10px 20px;
-    background-color: #ff4d4d; /* Red background */
-    color: white; /* White text */
-    text-decoration: none; /* Remove underline */
-    border: none;
-    border-radius: 5px; /* Rounded corners */
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: var(--okta-ink);
+    background: var(--okta-bg);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
 }
 
-.logout-btn:hover {
-    background-color: #e60000; /* Darker red on hover */
+code, pre {
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.875em;
 }
 
-.entitlement-key-wrapper{
-    float: left;
-    padding:  10px;
-    border:  1px solid #c6c6c6;
-    margin:  10px;
-    border-radius:  10px;
-    width: 300px;
-}
+a { color: var(--okta-blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
-.entitlement-group{
-    width: 300px;
-    text-align: left;
-    font-weight: bolder;
-    color: chocolate;
-    font-size: 1.5em;
-    padding: 0 5px 20px 5px;
-}
+/* ── Login page ──────────────────────────────────────────────────── */
 
-.entitlement-item{
-    float: left;
-    margin:  5px;
-    border-radius:  5px;
-    
-    padding:  0 20px;
-    font-weight: bolder;   
-    
-    height:40px;
-    line-height: 10px;
-}
-
-.entitlement-item.var1{
- 
-    border: 2px solid #065333;
-    background:#8fe9c4;
-}
-
-.entitlement-item.var2{
-     border: 2px solid #249bd5;
-    background: #a9d6f1;
-}
-
-
-.container {
+.login-shell {
+    min-height: 100vh;
     display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    padding-left: 50px;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(1000px 600px at 20% -10%, rgba(0,125,193,0.08), transparent 60%),
+        radial-gradient(800px 500px at 100% 100%, rgba(0,125,193,0.05), transparent 60%),
+        var(--okta-bg);
+    padding: 24px;
 }
 
-#roleContainer {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0; /* Remove gap to ensure full 50% width */
+.login-card {
+    background: var(--okta-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     width: 100%;
-    margin-top: 30px;
-}
-
-.role-div {
-    width: 100%;
-    box-sizing: border-box;
-    background-color: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-
-
-.role-title {
-    font-size: 18px;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 10px;
-    border-bottom: 2px solid #007bff;
-    padding-bottom: 5px;
-}
-
-.role-value {
-    background-color: #e9ecef;
-    margin:20px;
-    padding: 20px;
-    border-radius: 4px;
-    margin-bottom: 15px;
-    font-weight: 500;
-    text-transform: capitalize;
-}
-.role-value2 {
-    background-color: #424242;
-    margin:20px;
-    padding: 20px;
-    border-radius: 4px;
-    margin-bottom: 15px;
-    font-weight: 500;
-    text-transform: capitalize;
-    color:#fff;
-}
-.access-container {
-    background-color: #f8f9fa;
-    padding: 15px;
-    border-radius: 4px;
-    border-left: 4px solid #28a745;
-}
-.access-container2 {
-    background-color: #f8f9fa;
-    padding: 15px;
-    border-radius: 4px;
-    border-left: 4px solid #eea508;
-}
-.access-title {
-    font-size: 14px;
-    font-weight: bold;
-    color: #495057;
-    margin-bottom: 10px;
-}
-
-.access-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.access-item {
-    background-color: #007bff;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 12px;
-    text-transform: capitalize;
-}
-
-.columns-wrapper {
-    display: flex;
-    gap: 30px;
-    width: 100%;
-}
-
-.column {
-    flex: 1;
-    min-width: 0;
-}
-
-.column-title {
-    font-size: 24px;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 3px solid #007bff;
+    max-width: 420px;
+    padding: 48px 40px 40px;
     text-align: center;
 }
 
-.column:has(#devOpsContainer) .column-title {
-    border-bottom-color: #d97706;
+.login-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 20px;
+    border-radius: 12px;
+    background: var(--okta-blue);
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.02em;
 }
 
-.role-container {
+.login-card h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+}
+
+.login-card p {
+    color: var(--okta-ink-muted);
+    margin: 0 0 28px;
+    font-size: 14px;
+}
+
+.btn-okta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    background: var(--okta-blue);
+    color: #fff;
+    border: 0;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.05s ease;
+    text-decoration: none;
+}
+.btn-okta:hover { background: var(--okta-blue-dark); text-decoration: none; }
+.btn-okta:active { transform: translateY(1px); }
+
+.btn-okta__chevron {
+    width: 16px; height: 16px; opacity: 0.85;
+}
+
+/* ── Login tabs (radio-input driven, no JS) ───────────────────────── */
+
+.tab-input { position: absolute; opacity: 0; pointer-events: none; }
+
+.login-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--okta-line);
+    border-radius: var(--radius);
+    background: #f7f7f8;
+    padding: 4px;
+    margin: 0 0 24px;
+    gap: 4px;
+}
+.login-tab {
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--okta-ink-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+}
+.login-tab:hover { color: var(--okta-ink); }
+
+#tab-user:checked  ~ .login-tabs label[for="tab-user"],
+#tab-admin:checked ~ .login-tabs label[for="tab-admin"] {
+    background: var(--okta-card);
+    color: var(--okta-ink);
+    box-shadow: var(--shadow-sm);
+}
+
+.login-tab-panel { display: none; }
+#tab-user:checked  ~ .login-tab-panel--user  { display: block; }
+#tab-admin:checked ~ .login-tab-panel--admin { display: block; }
+
+.login-footnote--inline {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--okta-ink-muted);
+}
+
+.login-footnote {
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--okta-ink-muted);
+}
+.login-footnote code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+
+/* ── App header (dashboard, admin) ────────────────────────────────── */
+
+.app-header {
+    background: var(--okta-card);
+    border-bottom: 1px solid var(--okta-line);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+}
+.brand .brand-mark {
+    width: 28px; height: 28px;
+    background: var(--okta-blue);
+    color: #fff;
+    border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 14px;
+}
+.user-info .user-name { font-weight: 500; }
+.user-info .user-email { color: var(--okta-ink-muted); }
+
+.logout-link, .admin-tab {
+    font-size: 13px;
+    padding: 6px 12px;
+    border: 1px solid var(--okta-line);
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+.logout-link {
+    color: var(--okta-ink-muted);
+}
+.logout-link:hover {
+    color: var(--okta-ink);
+    border-color: var(--okta-ink-muted);
+    text-decoration: none;
+}
+.admin-tab {
+    color: var(--okta-blue);
+    border-color: var(--okta-blue);
+    background: var(--okta-blue-soft);
+    font-weight: 500;
+}
+.admin-tab:hover {
+    background: var(--okta-blue);
+    color: #fff;
+    text-decoration: none;
+}
+
+/* ── Dashboard layout ─────────────────────────────────────────────── */
+
+.dashboard {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 32px 64px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
 }
 
-#devOpsContainer .access-item {
-    background-color: #d97706;
+.card {
+    background: var(--okta-card);
+    border: 1px solid var(--okta-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 24px 28px;
 }
 
-.no-access-message {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    font-weight: 500;
+.card h2 {
+    margin: 0 0 4px;
     font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
 }
+
+.card-subtitle {
+    margin: 0 0 20px;
+    color: var(--okta-ink-muted);
+    font-size: 13px;
+}
+.card-subtitle .granted-marker {
+    color: var(--granted-green);
+    font-weight: 700;
+}
+
+/* ── SAML assertion table ─────────────────────────────────────────── */
+
+.assertion-card .kv-list {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 0;
+    margin: 0;
+    border-top: 1px solid var(--okta-line);
+}
+.assertion-card dt,
+.assertion-card dd {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--okta-line);
+    margin: 0;
+}
+.assertion-card dt {
+    background: #fbfbfb;
+    color: var(--okta-ink-muted);
+    font-size: 13px;
+    font-weight: 500;
+    word-break: break-word;
+}
+.assertion-card dd {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+.assertion-card dd code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+.assertion-card dd .pill + .pill { margin-left: 6px; }
+
+.pill {
+    display: inline-block;
+    background: var(--okta-blue-soft);
+    color: var(--okta-blue-dark);
+    border: 1px solid #c5e2f3;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 2px 4px 2px 0;
+}
+
+/* ── Entitlement list (roles + access) ────────────────────────────── */
+
+.entitlement-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--okta-line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.entitlement-item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--okta-line);
+    font-size: 14px;
+    background: #fff;
+}
+.entitlement-item:first-child { border-top: 0; }
+
+.entitlement-item .entitlement-icon {
+    color: #cdd2d8;
+    font-size: 16px;
+    line-height: 1;
+}
+.entitlement-item.granted {
+    background: var(--granted-bg);
+}
+.entitlement-item.granted .entitlement-icon {
+    color: var(--granted-green);
+}
+.entitlement-item.granted .entitlement-name {
+    font-weight: 600;
+    color: var(--granted-green);
+}
+.entitlement-item .entitlement-name { color: var(--okta-ink-muted); }
+.entitlement-item .entitlement-column {
+    color: var(--okta-ink-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--okta-line);
+    border-radius: 4px;
+    padding: 2px 8px;
+}
+.entitlement-item .entitlement-value {
+    background: var(--code-bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+/* ── Provenance footer ─────────────────────────────────────────────── */
+
+.provenance-note {
+    text-align: center;
+    color: var(--okta-ink-muted);
+    font-size: 13px;
+    padding: 8px 16px;
+    margin: 0;
+}
+.provenance-note.from-scim { color: var(--granted-green); }
+.provenance-note.from-saml { color: var(--warning-amber); }
+
+/* ── Access-denied / sign-in-required pages ───────────────────────── */
+
+.message-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    background: var(--okta-bg);
+}
+.message-card {
+    background: var(--okta-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    padding: 48px 40px;
+    max-width: 460px;
+}
+.message-card h1 { margin: 0 0 12px; font-size: 22px; font-weight: 600; }
+.message-card p  { color: var(--okta-ink-muted); margin: 0 0 24px; font-size: 14px; }

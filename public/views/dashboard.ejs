@@ -1,79 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CEM App — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <div style="height:50px">
-         <a href="/logout" class="logout-btn">Logout</a>
-    </div>
-    <div class="app-header">
-       
-            <svg class="app-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-            <!-- Background circle -->
-            <circle cx="32" cy="32" r="30" fill="#007bff" stroke="#0056b3" stroke-width="2"/>
-            
-            <!-- Shopping cart icon -->
-            <g transform="translate(8, 12)">
-                <!-- Cart body -->
-                <rect x="6" y="12" width="24" height="16" rx="2" fill="white" stroke="white" stroke-width="1"/>
-                
-                <!-- Cart handle -->
-                <path d="M4 8 L8 8 L10 20 L28 20" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
-                
-                <!-- Cart wheels -->
-                <circle cx="12" cy="32" r="2" fill="white"/>
-                <circle cx="24" cy="32" r="2" fill="white"/>
-                
-                <!-- Dollar sign -->
-                <text x="18" y="22" fill="#007bff" font-size="8" font-weight="bold" text-anchor="middle">$</text>
-            </g>
-            
-            <!-- Credit card/payment icon -->
-            <g transform="translate(32, 20)">
-                <!-- Card -->
-                <rect x="0" y="0" width="20" height="12" rx="2" fill="white" stroke="white" stroke-width="1"/>
-                
-                <!-- Card stripe -->
-                <rect x="0" y="3" width="20" height="2" fill="#28a745"/>
-                
-                <!-- Card chip -->
-                <rect x="2" y="7" width="3" height="2" fill="#ffc107"/>
-            </g>
-        </svg>
-            <apptitle>Système de gestion des achats et des comptes fournisseurs<br/>Purchase & Payable Management System</apptitle>
-            <div id="user_info"></div>
-           
+    <header class="app-header">
+        <div class="brand">
+            <span class="brand-mark">CEM</span>
+            <span>CEM App</span>
         </div>
-
-        <div class="container">
-        <div class="columns-wrapper">
-            <div class="column">
-                <h2 class="column-title">Software Dev</h2>
-                <div id="softwareDevContainer" class="role-container">
-                    <!-- Software Dev roles will be generated here -->
-                </div>
-            </div>
-            <div class="column">
-                <h2 class="column-title">Dev Operations</h2>
-                <div id="devOpsContainer" class="role-container">
-                    <!-- Dev Operations roles will be generated here -->
-                </div>
-            </div>
+        <div class="user-info">
+            <span class="user-name"><%= [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email %></span>
+            <span class="user-email"><%= user.email %></span>
+            <% if (isAdmin) { %>
+                <a href="/admin/dashboard" class="admin-tab">Admin →</a>
+            <% } %>
+            <a href="/logout" class="logout-link">Sign out</a>
         </div>
-    </div>
-       
-   
+    </header>
 
-    <script>
-        // Pass JSON data to JavaScript
-        let user = <%- JSON.stringify(user) %>;
-        let entitlements = <%- JSON.stringify(entitlements) %>;
+    <main class="dashboard">
 
-    </script>
-    <script src="/js/init.js"></script>
+        <!-- ─────────────────────  SAML assertion  ────────────────────── -->
+        <section class="card assertion-card">
+            <h2>SAML assertion</h2>
+            <p class="card-subtitle">Attributes received from Okta in this session.</p>
+
+            <dl class="kv-list">
+                <dt>NameID</dt>
+                <dd><code><%= samlAssertion.nameID || '—' %></code></dd>
+
+                <dt>NameID format</dt>
+                <dd><code><%= samlAssertion.nameIDFormat || '—' %></code></dd>
+
+                <dt>Issuer</dt>
+                <dd><code><%= samlAssertion.issuer || '—' %></code></dd>
+
+                <dt>Session index</dt>
+                <dd><code><%= samlAssertion.sessionIndex || '—' %></code></dd>
+
+                <% Object.entries(samlAssertion.attributes || {}).forEach(([key, value]) => { %>
+                    <dt><%= key %></dt>
+                    <dd>
+                        <% if (Array.isArray(value)) { %>
+                            <% if (value.length === 0) { %>
+                                <span class="pill" style="background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb">(empty)</span>
+                            <% } else { %>
+                                <% value.forEach(v => { %>
+                                    <span class="pill"><%= v %></span>
+                                <% }) %>
+                            <% } %>
+                        <% } else if (value === null || value === undefined || value === '') { %>
+                            <span class="pill" style="background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb">(empty)</span>
+                        <% } else { %>
+                            <code><%= value %></code>
+                        <% } %>
+                    </dd>
+                <% }) %>
+            </dl>
+        </section>
+
+        <!-- ───────────────────────  Roles  ─────────────────────────── -->
+        <section class="card roles-card">
+            <h2>Roles</h2>
+            <p class="card-subtitle">
+                All roles defined in the CEM App catalog.
+                <span class="granted-marker">●</span> = granted to you.
+            </p>
+
+            <ul class="entitlement-list">
+                <% roleCatalog.forEach(role => {
+                    const granted = (entitlements.role || []).includes(role.value);
+                %>
+                    <li class="entitlement-item <%= granted ? 'granted' : '' %>">
+                        <span class="entitlement-icon"><%- granted ? '●' : '○' %></span>
+                        <span class="entitlement-name"><%= role.displayName %></span>
+                        <span></span>
+                        <code class="entitlement-value"><%= role.value %></code>
+                    </li>
+                <% }) %>
+            </ul>
+        </section>
+
+        <!-- ─────────────────  Access permissions  ──────────────────── -->
+        <section class="card access-card">
+            <h2>Access permissions</h2>
+            <p class="card-subtitle">
+                All access permissions defined in the CEM App catalog.
+                <span class="granted-marker">●</span> = granted to you.
+            </p>
+
+            <ul class="entitlement-list">
+                <% accessCatalog.forEach(access => {
+                    const granted = (entitlements.access || []).includes(access.value);
+                %>
+                    <li class="entitlement-item <%= granted ? 'granted' : '' %>">
+                        <span class="entitlement-icon"><%- granted ? '●' : '○' %></span>
+                        <span class="entitlement-name"><%= access.displayName %></span>
+                        <span class="entitlement-column"><%= access.column || '' %></span>
+                        <code class="entitlement-value"><%= access.value %></code>
+                    </li>
+                <% }) %>
+            </ul>
+        </section>
+
+        <!-- ──────────────────  Provenance footer  ─────────────────── -->
+        <p class="provenance-note <%= provisionedFromDb ? 'from-scim' : 'from-saml' %>">
+            <% if (provisionedFromDb) { %>
+                ✓ Grants resolved from SCIM-provisioned database record
+            <% } else { %>
+                ⚡ Grants resolved from SAML attributes (user not yet provisioned via SCIM)
+            <% } %>
+        </p>
+    </main>
 </body>
 </html>
