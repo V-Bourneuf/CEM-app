@@ -1,0 +1,33 @@
+[Unit]
+Description=OpsApp — SAML demo with SCIM provisioning
+After=network.target
+
+[Service]
+Type=simple
+User=opsapp
+Group=opsapp
+WorkingDirectory=/opt/opsapp
+EnvironmentFile=/opt/opsapp/.env.production
+ExecStart=/usr/bin/node server.js --profile production
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/opsapp/data /opt/opsapp/profiles /opt/opsapp/saml-debug.log
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+# Resource limits
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
