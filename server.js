@@ -26,7 +26,11 @@ const db = require('./db');
 db.open();
 
 const { getAdminVerdict } = require('./admin/auth');
-const { loadProfile, setupProfileInteractive, KNOWN_FLOWS } = require('./profileManager');
+const {
+    loadProfile, setupProfileInteractive,
+    setupBreakglassInteractive, loadBreakglass,
+    KNOWN_FLOWS,
+} = require('./profileManager');
 
 const PORT       = parseInt(process.env.PORT, 10) || 1337;
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
@@ -237,9 +241,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
+    // Clear both SAML (passport) auth AND any breakglass admin session.
+    if (req.session) delete req.session.breakglass;
     req.logout(() => {
-        req.session && req.session.destroy && req.session.destroy(() => res.redirect('/'));
-        if (!req.session) res.redirect('/');
+        if (req.session && req.session.destroy) {
+            return req.session.destroy(() => res.redirect('/'));
+        }
+        res.redirect('/');
     });
 });
 
@@ -250,8 +258,12 @@ app.get('/logout', (req, res) => {
     const setupIdx = args.indexOf('--setup');
     if (setupIdx >= 0) {
         const name = args[setupIdx + 1];
-        if (!name) { console.error('Usage: node server.js --setup <byo|scim>'); process.exit(2); }
-        await setupProfileInteractive(name);
+        if (!name) { console.error('Usage: node server.js --setup <byo|scim|breakglass>'); process.exit(2); }
+        if (name === 'breakglass') {
+            await setupBreakglassInteractive();
+        } else {
+            await setupProfileInteractive(name);
+        }
         process.exit(0);
     }
 
@@ -269,7 +281,9 @@ app.get('/logout', (req, res) => {
         const adminMode = process.env.ADMIN_EMAILS
             ? `Okta SAML allowlist — ${process.env.ADMIN_EMAILS}`
             : 'entitlement-based only (assign App Admin in Okta IGA → SCIM PATCH)';
+        const breakglass = loadBreakglass();
         console.log(`Admin UI:         ${PUBLIC_URL}/admin   (auth: ${adminMode})`);
+        console.log(`                    + breakglass: ${breakglass ? '✓ ' + breakglass.username : '✗ NOT configured (run: node server.js --setup breakglass)'}`);
         console.log('');
     });
 })().catch(err => {

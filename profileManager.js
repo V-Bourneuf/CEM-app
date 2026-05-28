@@ -31,9 +31,11 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const readline = require('readline');
 
 const PROFILES_DIR = path.join(__dirname, 'profiles');
+const BREAKGLASS_PATH = path.join(PROFILES_DIR, 'breakglass.json');
 
 const KNOWN_FLOWS = ['byo', 'scim'];
 
@@ -178,10 +180,106 @@ async function setupProfileInteractive(name) {
     }
 }
 
+// ---------- breakglass admin (local username + password, bypasses SAML) ----------
+//
+// The breakglass account exists for emergency access when Okta is down or the
+// SAML integration is broken. It's a single local user/password — never the
+// preferred login path. Stored at profiles/breakglass.json (gitignored, mode 600).
+// Password is scrypt-hashed with a per-account random salt; we never store plaintext.
+
+function loadBreakglass() {
+    if (!fs.existsSync(BREAKGLASS_PATH)) return null;
+    try {
+        const raw = JSON.parse(fs.readFileSync(BREAKGLASS_PATH, 'utf8'));
+        if (!raw || typeof raw !== 'object') return null;
+        if (!raw.username || !raw.salt || !raw.hash) return null;
+        return raw;
+    } catch {
+        return null;
+    }
+}
+
+function saveBreakglass({ username, salt, hash }) {
+    ensureProfilesDir();
+    fs.writeFileSync(
+        BREAKGLASS_PATH,
+        JSON.stringify({ username, salt, hash }, null, 2),
+        { mode: 0o600 }
+    );
+    try { fs.chmodSync(BREAKGLASS_PATH, 0o600); } catch {}
+    return BREAKGLASS_PATH;
+}
+
+function _scryptHash(password, salt) {
+    return new Promise((resolve, reject) => {
+        crypto.scrypt(password, salt, 64, { N: 16384, r: 8, p: 1 }, (err, derived) => {
+            if (err) reject(err);
+            else resolve(derived.toString('hex'));
+        });
+    });
+}
+
+async function verifyBreakglassPassword(username, password) {
+    const cfg = loadBreakglass();
+    if (!cfg || !username || !password) return false;
+    if (cfg.username.toLowerCase() !== String(username).toLowerCase()) return false;
+    try {
+        const expected = Buffer.from(cfg.hash, 'hex');
+        const derived  = Buffer.from(await _scryptHash(password, cfg.salt), 'hex');
+        return expected.length === derived.length && crypto.timingSafeEqual(expected, derived);
+    } catch {
+        return false;
+    }
+}
+
+async function setupBreakglassInteractive() {
+    const prompt = makePrompt();
+    try {
+        console.log('\n=== Configure the breakglass admin account ===\n');
+        console.log("This is a LOCAL username + password that bypasses SAML — used");
+        console.log("when Okta is unreachable or the SAML integration is broken.\n");
+
+        if (loadBreakglass()) {
+            const ans = await prompt.ask('A breakglass account already exists. Overwrite? (y/N)', 'N');
+            if (!/^y/i.test(ans)) {
+                console.log('Cancelled.');
+                return null;
+            }
+        }
+
+        const username = await prompt.askValidated(
+            'Username (often the operator\'s email)',
+            v => v && v.length >= 3 ? null : 'At least 3 chars'
+        );
+        const password = await prompt.askValidated(
+            'Password (min 12 chars)',
+            v => v && v.length >= 12 ? null : 'At least 12 chars'
+        );
+        const confirm  = await prompt.ask('Confirm password');
+        if (password !== confirm) {
+            console.log("Passwords don't match. Cancelled.");
+            return null;
+        }
+
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = await _scryptHash(password, salt);
+        const dst  = saveBreakglass({ username, salt, hash });
+        console.log(`\n✓ Breakglass account saved for ${username}`);
+        console.log(`  → ${dst}  (mode 600)\n`);
+        return { username };
+    } finally {
+        prompt.close();
+    }
+}
+
 module.exports = {
     KNOWN_FLOWS,
     loadProfile,
     saveProfile,
     listProfiles,
     setupProfileInteractive,
+    loadBreakglass,
+    saveBreakglass,
+    verifyBreakglassPassword,
+    setupBreakglassInteractive,
 };

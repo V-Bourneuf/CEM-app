@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CEM App Admin — Sign in</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .admin-login-card { max-width: 480px; padding: 40px 36px; }
+        .admin-login-card h1 { font-size: 26px; }
+        .auth-method { text-align: left; margin: 20px 0; }
+        .auth-method h3 { font-family: var(--font-body); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 8px; }
+        .auth-method p { font-size: 13px; color: var(--ink-muted); margin: 0 0 12px; text-align: left; }
+        .auth-method form { display: flex; flex-direction: column; gap: 10px; }
+        .auth-method input {
+            width: 100%; padding: 10px 12px;
+            border: 1px solid var(--line); border-radius: var(--radius);
+            font-family: var(--font-body); font-size: 14px;
+        }
+        .auth-method input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+        .divider {
+            display: flex; align-items: center; gap: 12px;
+            color: var(--ink-muted); font-size: 12px; letter-spacing: 0.08em;
+            text-transform: uppercase; margin: 20px 0;
+        }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+        .login-error {
+            background: #fee2e2; color: #991b1b;
+            border: 1px solid #fecaca; border-radius: 6px;
+            padding: 10px 14px; font-size: 13px; margin: 0 0 16px;
+            text-align: left;
+        }
+        .login-flash {
+            background: #d1fae5; color: #065f46;
+            border: 1px solid #a7f3d0; border-radius: 6px;
+            padding: 10px 14px; font-size: 13px; margin: 0 0 16px;
+            text-align: left;
+        }
+        .auth-method.disabled { opacity: 0.55; }
+        .auth-method.disabled p { font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="login-shell">
+        <div class="login-card admin-login-card">
+            <div class="login-mark" aria-hidden="true">🔐</div>
+            <h1>CEM App Admin</h1>
+            <p style="margin:0 0 8px">Two ways in.</p>
+
+            <% if (flash) { %><div class="login-flash"><%= flash %></div><% } %>
+            <% if (error) { %><div class="login-error">⚠️ <%= error %></div><% } %>
+
+            <!-- ─── Okta SSO ─── -->
+            <div class="auth-method">
+                <h3>Sign in with Okta</h3>
+                <p>
+                    Recommended path. Sign in via either flow, then return to <code>/admin</code>.
+                    Admin verdict is granted if your email is on the bootstrap allowlist, your
+                    SAML attributes carry an admin role, or you've been granted an admin
+                    entitlement via SCIM.
+                </p>
+                <% const anyConfigured = flows.some(f => f.configured); %>
+                <% if (anyConfigured) { %>
+                    <a href="/" class="btn-okta">Sign in with Okta →</a>
+                <% } else { %>
+                    <p class="muted-inline" style="font-style:italic">No SAML flow configured yet — use the breakglass below.</p>
+                <% } %>
+            </div>
+
+            <div class="divider">or</div>
+
+            <!-- ─── Breakglass ─── -->
+            <div class="auth-method <%= breakglass ? '' : 'disabled' %>">
+                <h3>Breakglass sign-in</h3>
+                <% if (breakglass) { %>
+                    <p>Local credentials configured at install. Use this when Okta is unreachable.</p>
+                    <form method="POST" action="/admin/login" autocomplete="on">
+                        <input type="text"     name="username" placeholder="Username" required autocomplete="username">
+                        <input type="password" name="password" placeholder="Password" required autocomplete="current-password" minlength="1">
+                        <button type="submit" class="btn-okta" style="background:var(--okta-navy)">Sign in (breakglass)</button>
+                    </form>
+                <% } else { %>
+                    <p>No breakglass account is configured on this server. The operator can add one with:</p>
+                    <pre style="background:var(--code-bg);padding:8px 12px;border-radius:6px;font-size:12px;margin:0">node server.js --setup breakglass</pre>
+                <% } %>
+            </div>
+
+            <p class="login-footnote" style="margin-top:32px">
+                Hosted at <code><%= host %></code> · <a href="/">back to landing</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

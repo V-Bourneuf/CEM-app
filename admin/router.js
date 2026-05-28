@@ -17,7 +17,10 @@ const fs      = require('fs');
 const db = require('../db');
 const { Entitlements, Users, Grants, Profiles } = db;
 const { getAdminVerdict } = require('./auth');
-const { loadProfile, saveProfile, KNOWN_FLOWS } = require('../profileManager');
+const {
+    loadProfile, saveProfile, KNOWN_FLOWS,
+    loadBreakglass, verifyBreakglassPassword,
+} = require('../profileManager');
 
 const router = express.Router();
 
@@ -50,6 +53,48 @@ function deniedPage(res, status, headline, body, ctaHref, ctaText) {
 </div></div></body></html>`);
 }
 
+// Render helper that uses admin/views and skips the shared layout
+function renderAdmin(res, view, locals = {}) {
+    res.render(path.join(__dirname, 'views', view), { ...locals, layout: false });
+}
+
+// ---------- public sub-routes (BEFORE the admin gate) ----------
+
+// Login page — combined Okta CTA + breakglass form.
+router.get('/login', (req, res) => {
+    if (getAdminVerdict(req).ok) return res.redirect('/admin/dashboard');
+    renderAdmin(res, 'admin-login.ejs', {
+        page:        'login',
+        host:        req.headers.host || 'localhost',
+        breakglass:  !!loadBreakglass(),
+        flows:       KNOWN_FLOWS.map(k => ({ key: k, configured: !!loadProfile(k) })),
+        flash:       req.query.flash || null,
+        error:       req.query.error || null,
+    });
+});
+
+// Breakglass POST — verify local creds, set session flag.
+router.post('/login', async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const password = String(req.body.password || '');
+    const ok = await verifyBreakglassPassword(username, password);
+    if (!ok) {
+        return res.redirect('/admin/login?error=' +
+            encodeURIComponent('Invalid breakglass credentials, or breakglass not configured on this server.'));
+    }
+    req.session.breakglass = { username: username.toLowerCase(), since: Date.now() };
+    res.redirect('/admin/dashboard');
+});
+
+// Sign out of /admin — clears the breakglass flag (does NOT clear the SAML
+// passport session; the public /logout route does that for both).
+router.post('/logout', (req, res) => {
+    if (req.session) delete req.session.breakglass;
+    res.redirect('/admin/login?flash=' + encodeURIComponent('Signed out of /admin.'));
+});
+
+// ---------- admin gate (everything below requires admin) ----------
+
 router.use((req, res, next) => {
     const verdict = getAdminVerdict(req);
     if (verdict.ok) {
@@ -57,23 +102,17 @@ router.use((req, res, next) => {
         return next();
     }
     if (verdict.reason === 'unauthenticated') {
-        return deniedPage(res, 401,
-            'Sign in required',
-            'Admin pages are gated by Okta. Please sign in via either flow first, then return to <code>/admin</code>.',
-            '/', 'Back to landing');
+        // Bounce to the login page (which carries both SAML and breakglass options).
+        return res.redirect('/admin/login');
     }
     return deniedPage(res, 403,
         'Access denied',
         `Your account <code>${escapeHtml(verdict.email || '(unknown)')}</code> isn't on the CEM App admin allowlist, ` +
         `doesn't carry an admin-granting SAML attribute (e.g. <code>App Admin</code> in the <code>role</code> array), ` +
-        `and hasn't been granted an admin entitlement via SCIM.`,
+        `and hasn't been granted an admin entitlement via SCIM. ` +
+        `If Okta is unreachable, sign out and use the breakglass account at <code>/admin/login</code>.`,
         '/', 'Back to landing');
 });
-
-// Render helper that uses admin/views and skips the shared layout
-function renderAdmin(res, view, locals = {}) {
-    res.render(path.join(__dirname, 'views', view), { ...locals, layout: false });
-}
 
 // ---------- routes ----------
 

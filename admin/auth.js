@@ -49,6 +49,12 @@ function samlAttributeValues(req) {
 }
 
 function getAdminVerdict(req) {
+    // 0. Breakglass session — local username + password (no SAML required).
+    //    Bypasses all the SAML-based paths below; always-on safety net.
+    if (req.session && req.session.breakglass && req.session.breakglass.username) {
+        return { ok: true, via: 'breakglass', email: req.session.breakglass.username };
+    }
+
     if (!req.isAuthenticated || !req.isAuthenticated()) {
         return { ok: false, reason: 'unauthenticated' };
     }
