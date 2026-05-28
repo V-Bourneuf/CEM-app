@@ -1,5 +1,5 @@
 /**
- * Interactive profile manager for the OpsApp SAML configuration.
+ * Interactive profile manager for the CEM App SAML configuration.
  *
  * Profiles are stored under ./profiles/<name>/ as:
  *   config.json   { entryPoint, issuer, skipAttributes, scimToken }
@@ -136,7 +136,7 @@ async function createProfile(prompt) {
     }
 
     const entryPoint     = await prompt.askValidated('Okta Entry Point (App Embed Link)', validators.httpsUrl);
-    const issuer         = await prompt.askValidated('SP Issuer / Audience URI', validators.issuer, 'http://localhost:1337/opsapp');
+    const issuer         = await prompt.askValidated('SP Issuer / Audience URI', validators.issuer, 'http://localhost:1337/cemapp');
     const skipAttributes = await prompt.ask('Skip SAML attributes (comma-separated)', 'firstName,lastName,email');
     const certPath       = await prompt.askValidated('Path to signing certificate (.cert/.pem)', validators.certPath);
     const scimToken      = await prompt.ask('SCIM bearer token (optional, blank to skip)', '');

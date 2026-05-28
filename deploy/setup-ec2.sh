@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 #
-# setup-ec2.sh — one-shot installer for OpsApp on a fresh EC2 instance.
+# setup-ec2.sh — one-shot installer for CEM App on a fresh EC2 instance.
 # Tested on Amazon Linux 2023 and Ubuntu 22.04+.
 #
 # Usage (as a sudo-capable user):
-#   sudo bash deploy/setup-ec2.sh opsapp.example.com you@example.com
+#   sudo bash deploy/setup-ec2.sh cemapp.example.com you@example.com
 #
 # Steps performed:
 #   1. Install Node 20 LTS, nginx, certbot
-#   2. Create opsapp user
-#   3. Copy app to /opt/opsapp, install deps, build native module
+#   2. Create cemapp user
+#   3. Copy app to /opt/cemapp, install deps, build native module
 #   4. Install systemd unit + nginx site
 #   5. Provision Let's Encrypt cert via certbot --nginx
 #   6. Start the service
 #
 # Pre-reqs the operator must do AFTER this script:
-#   - cd /opt/opsapp && sudo -u opsapp node server.js --prompt   (creates 'production' profile)
-#     OR populate /opt/opsapp/.env.production with OKTA_ENTRYPOINT/OKTA_ISSUER/SCIM_TOKEN/etc.
-#   - Place saml.pem at /opt/opsapp/profiles/production/saml.pem (or root if using .env mode)
+#   - cd /opt/cemapp && sudo -u cemapp node server.js --prompt   (creates 'production' profile)
+#     OR populate /opt/cemapp/.env.production with OKTA_ENTRYPOINT/OKTA_ISSUER/SCIM_TOKEN/etc.
+#   - Place saml.pem at /opt/cemapp/profiles/production/saml.pem (or root if using .env mode)
 
 set -euo pipefail
 
@@ -25,7 +25,7 @@ DOMAIN="${1:?Usage: $0 <domain> <email>}"
 EMAIL="${2:?Usage: $0 <domain> <email>}"
 
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="/opt/opsapp"
+APP_DIR="/opt/cemapp"
 
 echo "==> Detecting OS"
 . /etc/os-release
@@ -52,8 +52,8 @@ case "$DISTRO" in
 esac
 
 # ---------- 2. Create app user ----------
-echo "==> Creating opsapp user"
-id -u opsapp >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir "$APP_DIR" --create-home opsapp
+echo "==> Creating cemapp user"
+id -u cemapp >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir "$APP_DIR" --create-home cemapp
 
 # ---------- 3. Install app ----------
 echo "==> Copying app to $APP_DIR"
@@ -66,26 +66,26 @@ rsync -a --delete \
       --exclude='saml-debug.log' \
       --exclude='.env' --exclude='.env.production' \
       "$SRC_DIR/" "$APP_DIR/"
-chown -R opsapp:opsapp "$APP_DIR"
+chown -R cemapp:cemapp "$APP_DIR"
 
 echo "==> Installing npm dependencies"
-sudo -u opsapp -- env HOME="$APP_DIR" sh -c "cd '$APP_DIR' && npm ci --omit=dev || npm install --omit=dev"
+sudo -u cemapp -- env HOME="$APP_DIR" sh -c "cd '$APP_DIR' && npm ci --omit=dev || npm install --omit=dev"
 # Rebuild native bindings against the system node
-sudo -u opsapp -- sh -c "cd '$APP_DIR' && npm rebuild better-sqlite3"
+sudo -u cemapp -- sh -c "cd '$APP_DIR' && npm rebuild better-sqlite3"
 
 # ---------- 4. systemd + nginx ----------
 echo "==> Installing systemd unit"
-cp "$APP_DIR/deploy/opsapp.service" /etc/systemd/system/opsapp.service
+cp "$APP_DIR/deploy/cemapp.service" /etc/systemd/system/cemapp.service
 systemctl daemon-reload
-systemctl enable opsapp
+systemctl enable cemapp
 
 echo "==> Installing nginx site"
-sed "s/opsapp.example.com/$DOMAIN/g" "$APP_DIR/deploy/nginx.conf" > /etc/nginx/sites-available/opsapp || \
-    sed "s/opsapp.example.com/$DOMAIN/g" "$APP_DIR/deploy/nginx.conf" > /etc/nginx/conf.d/opsapp.conf
+sed "s/cemapp.example.com/$DOMAIN/g" "$APP_DIR/deploy/nginx.conf" > /etc/nginx/sites-available/cemapp || \
+    sed "s/cemapp.example.com/$DOMAIN/g" "$APP_DIR/deploy/nginx.conf" > /etc/nginx/conf.d/cemapp.conf
 
 # On Ubuntu we need to symlink into sites-enabled
 if [ -d /etc/nginx/sites-enabled ]; then
-    ln -sf /etc/nginx/sites-available/opsapp /etc/nginx/sites-enabled/opsapp
+    ln -sf /etc/nginx/sites-available/cemapp /etc/nginx/sites-enabled/cemapp
     rm -f /etc/nginx/sites-enabled/default
 fi
 
@@ -105,16 +105,16 @@ echo
 echo "==> Done. Next steps for the operator:"
 echo
 echo "   1) Configure the SAML profile interactively:"
-echo "        sudo -u opsapp node $APP_DIR/server.js --prompt"
+echo "        sudo -u cemapp node $APP_DIR/server.js --prompt"
 echo "      (Choose 'create new', name it 'production', supply Okta entry point + cert + SCIM token + admin creds.)"
 echo "      Stop with Ctrl-C once profile is saved."
 echo
 echo "   2) Start the service:"
-echo "        sudo systemctl start opsapp"
-echo "        sudo systemctl status opsapp"
+echo "        sudo systemctl start cemapp"
+echo "        sudo systemctl status cemapp"
 echo
 echo "   3) Tail logs:"
-echo "        sudo journalctl -u opsapp -f"
+echo "        sudo journalctl -u cemapp -f"
 echo
 echo "   The app will be reachable at: https://$DOMAIN"
 echo "   SCIM base URL for Okta:        https://$DOMAIN/scim/v2"

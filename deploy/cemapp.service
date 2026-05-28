@@ -1,13 +1,13 @@
 [Unit]
-Description=OpsApp — SAML demo with SCIM provisioning
+Description=CEM App — Okta IGA reference (SAML SSO + SCIM 2.0)
 After=network.target
 
 [Service]
 Type=simple
-User=opsapp
-Group=opsapp
-WorkingDirectory=/opt/opsapp
-EnvironmentFile=/opt/opsapp/.env.production
+User=cemapp
+Group=cemapp
+WorkingDirectory=/opt/cemapp
+EnvironmentFile=/opt/cemapp/.env.production
 ExecStart=/usr/bin/node server.js --profile production
 Restart=on-failure
 RestartSec=5
@@ -17,7 +17,7 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/opt/opsapp/data /opt/opsapp/profiles /opt/opsapp/saml-debug.log
+ReadWritePaths=/opt/cemapp/data /opt/cemapp/profiles /opt/cemapp/saml-debug.log
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectControlGroups=yes

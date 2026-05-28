@@ -143,7 +143,7 @@ function listResponse(resources) {
 router.get('/ServiceProviderConfig', (req, res) => {
     res.json({
         schemas:         ['urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig'],
-        documentationUri: 'https://github.com/esolvpine/okta-OpsApp',
+        documentationUri: 'https://github.com/V-Bourneuf/CEM-app',
         patch:           { supported: true },
         bulk:            { supported: false, maxOperations: 0, maxPayloadSize: 0 },
         filter:          { supported: true,  maxResults: 200 },
@@ -166,7 +166,7 @@ router.get('/ResourceTypes', (req, res) => {
             id:                'User',
             name:              'User',
             endpoint:          '/Users',
-            description:       'OpsApp user account, provisioned by Okta',
+            description:       'CEM App user account, provisioned by Okta',
             schema:            URN.User,
             schemaExtensions:  [],
         },
@@ -175,7 +175,7 @@ router.get('/ResourceTypes', (req, res) => {
             id:                'Role',
             name:              'Role',
             endpoint:          '/Roles',
-            description:       'OpsApp business roles (Software Dev, DevOps Engineering, etc.)',
+            description:       'CEM App business roles (Software Dev, DevOps Engineering, etc.)',
             schema:            URN.Role,
         },
         {
@@ -183,7 +183,7 @@ router.get('/ResourceTypes', (req, res) => {
             id:                'Entitlement',
             name:              'Entitlement',
             endpoint:          '/Entitlements',
-            description:       'OpsApp access permissions (deploy code, manage prod, etc.)',
+            description:       'CEM App access permissions (deploy code, manage prod, etc.)',
             schema:            URN.Entitlement,
         },
     ]));
@@ -191,9 +191,9 @@ router.get('/ResourceTypes', (req, res) => {
 
 router.get('/ResourceTypes/:id', (req, res) => {
     const map = {
-        User:        { id: 'User',        endpoint: '/Users',        schema: URN.User,        description: 'OpsApp user account' },
-        Role:        { id: 'Role',        endpoint: '/Roles',        schema: URN.Role,        description: 'OpsApp business role' },
-        Entitlement: { id: 'Entitlement', endpoint: '/Entitlements', schema: URN.Entitlement, description: 'OpsApp access permission' },
+        User:        { id: 'User',        endpoint: '/Users',        schema: URN.User,        description: 'CEM App user account' },
+        Role:        { id: 'Role',        endpoint: '/Roles',        schema: URN.Role,        description: 'CEM App business role' },
+        Entitlement: { id: 'Entitlement', endpoint: '/Entitlements', schema: URN.Entitlement, description: 'CEM App access permission' },
     };
     const rt = map[req.params.id];
     if (!rt) {

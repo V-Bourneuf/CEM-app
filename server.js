@@ -25,7 +25,7 @@ app.use(helmet({
 app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'opsapp-dev-only-change-me',
+    secret: process.env.SESSION_SECRET || 'cemapp-dev-only-change-me',
     resave: false,
     saveUninitialized: true,
     cookie: { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' },

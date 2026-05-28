@@ -1,4 +1,4 @@
--- OpsApp persistent store: catalog of entitlements + provisioned users + grants.
+-- CEM App persistent store: catalog of entitlements + provisioned users + grants.
 -- Driven by SCIM provisioning from Okta and admin UI edits.
 
 PRAGMA journal_mode = WAL;

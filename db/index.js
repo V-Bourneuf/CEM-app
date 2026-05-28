@@ -1,5 +1,5 @@
 /**
- * SQLite connection + queries for the OpsApp.
+ * SQLite connection + queries for the CEM App.
  * Uses better-sqlite3 (synchronous; ideal for single-process server with low write rate).
  *
  * On first start, runs the schema and seeds the entitlements table from the
@@ -12,7 +12,7 @@ const crypto = require('crypto');
 const Database = require('better-sqlite3');
 const { PROFILES } = require('./profiles');
 
-const DEFAULT_DB_PATH = path.join(__dirname, '..', 'data', 'opsapp.db');
+const DEFAULT_DB_PATH = path.join(__dirname, '..', 'data', 'cemapp.db');
 
 let db;
 
