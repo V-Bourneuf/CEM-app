@@ -118,49 +118,6 @@ a:hover { text-decoration: underline; }
     width: 16px; height: 16px; opacity: 0.85;
 }
 
-/* ── Login tabs (radio-input driven, no JS) ───────────────────────── */
-
-.tab-input { position: absolute; opacity: 0; pointer-events: none; }
-
-.login-tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border: 1px solid var(--okta-line);
-    border-radius: var(--radius);
-    background: #f7f7f8;
-    padding: 4px;
-    margin: 0 0 24px;
-    gap: 4px;
-}
-.login-tab {
-    padding: 8px 12px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--okta-ink-muted);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-    user-select: none;
-}
-.login-tab:hover { color: var(--okta-ink); }
-
-#tab-user:checked  ~ .login-tabs label[for="tab-user"],
-#tab-admin:checked ~ .login-tabs label[for="tab-admin"] {
-    background: var(--okta-card);
-    color: var(--okta-ink);
-    box-shadow: var(--shadow-sm);
-}
-
-.login-tab-panel { display: none; }
-#tab-user:checked  ~ .login-tab-panel--user  { display: block; }
-#tab-admin:checked ~ .login-tab-panel--admin { display: block; }
-
-.login-footnote--inline {
-    margin-top: 16px;
-    font-size: 12px;
-    color: var(--okta-ink-muted);
-}
 
 .login-footnote {
     margin-top: 32px;

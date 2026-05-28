@@ -14,39 +14,13 @@
         <div class="login-card">
             <div class="login-mark" aria-hidden="true">CEM</div>
             <h1>Sign in to CEM App</h1>
-
-            <!-- CSS-only tabs (radio inputs hidden, labels styled as tabs) -->
-            <input type="radio" name="login-tab" id="tab-user"  class="tab-input" checked>
-            <input type="radio" name="login-tab" id="tab-admin" class="tab-input">
-
-            <div class="login-tabs" role="tablist">
-                <label for="tab-user"  class="login-tab" role="tab">User</label>
-                <label for="tab-admin" class="login-tab" role="tab">Admin</label>
-            </div>
-
-            <div class="login-tab-panel login-tab-panel--user">
-                <p>Authenticate with Okta to view your roles and access permissions.</p>
-                <a href="/auth/saml" class="btn-okta">
-                    Sign in with Okta
-                    <svg class="btn-okta__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                        <path d="M5.5 3l5 5-5 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </a>
-            </div>
-
-            <div class="login-tab-panel login-tab-panel--admin">
-                <p>Authenticate to manage the entitlement catalog and provisioned users.</p>
-                <a href="/auth/saml/admin" class="btn-okta">
-                    Sign in with Okta as Admin
-                    <svg class="btn-okta__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                        <path d="M5.5 3l5 5-5 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </a>
-                <p class="login-footnote login-footnote--inline">
-                    Admin access is gated by an email allowlist on the SAML session.
-                </p>
-            </div>
-
+            <p>Authenticate with Okta to view your roles and access permissions.</p>
+            <a href="/auth/saml" class="btn-okta">
+                Sign in with Okta
+                <svg class="btn-okta__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M5.5 3l5 5-5 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
             <p class="login-footnote">
                 Identity governed by <code><%= host %></code>
             </p>

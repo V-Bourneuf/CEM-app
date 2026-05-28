@@ -271,19 +271,31 @@ Production runs at `https://<your-domain>/`, fronted by nginx with TLS.
 - Token sourced from the active SAML profile's config or `SCIM_TOKEN` env var
 
 ### `/admin` UI access
-Two paths, evaluated per request (`admin/router.js`):
+Three paths, any one of which makes a SAML-authenticated user an admin
+(`admin/auth.js` — `getAdminVerdict()`):
 
-1. **Bootstrap allowlist** — emails listed in the profile's `adminEmails`
-   (or `ADMIN_EMAILS` env var). Doesn't require a DB record. Intended as
-   initial / emergency access.
-2. **Entitlement-based** — the SAML-authenticated user is provisioned in the
-   app's DB **and** holds at least one entitlement flagged `grants_admin = 1`.
-   The canonical, delegable path: assign the **App Admin** role (in the
-   *Administration* profile) to a user via Okta IGA → Okta SCIM-PATCHes the
-   grant to the app → user becomes admin.
+1. **Bootstrap allowlist** — email matches a value in `ADMIN_EMAILS`
+   (sourced from the active SAML profile's `adminEmails` field at startup).
+   Doesn't require a DB record. Intended for the operator's first/initial
+   admin and emergency access — set during installation.
+2. **SAML assertion-based** *(works with Path A)* — the SAML attributes
+   on this session contain a `role` or `access` value matching an
+   entitlement in the catalog flagged `grants_admin = 1` (e.g. the
+   `App Admin` role from the bundled Administration profile). No DB
+   record required — useful when the user isn't SCIM-provisioned.
+3. **SCIM grant-based** *(works with Path B)* — the user is provisioned
+   in the app's DB and holds at least one entitlement flagged
+   `grants_admin = 1`. The canonical, delegable path: assign **App Admin**
+   in Okta IGA → Okta SCIM-PATCHes the grant → user becomes admin.
 
-The legacy `ADMIN_USER` / `ADMIN_PASS` HTTP basic auth is kept as a fallback
-when neither of the above is configured.
+The legacy `ADMIN_USER` / `ADMIN_PASS` HTTP-basic auth is kept as a
+fallback only when no admin path is configured at all (no allowlist
+configured *and* the user has no SAML/DB admin entitlement) — gives an
+operator a way in before Okta-side admin assignments are wired up.
+
+The login page itself is intentionally minimal — a single "Sign in with
+Okta" button. The dashboard renders an "Admin →" chip in the header
+once the verdict above resolves to admin; non-admins never see it.
 
 ---
 
@@ -333,7 +345,8 @@ id, so it'll be swept too if the profile is later disabled).
 │   ├── entitlements.js     # /Entitlements (type='access' subset of catalog)
 │   └── schemas.js          # /ServiceProviderConfig /ResourceTypes /Schemas
 ├── admin/
-│   ├── router.js           # Admin auth gate + catalog/profile/user routes
+│   ├── router.js           # Catalog/profile/user routes + denied-page renderer
+│   ├── auth.js             # getAdminVerdict() — single source of truth for admin authz
 │   └── views/              # EJS templates for admin UI
 ├── public/
 │   ├── views/              # Public app templates: login, dashboard

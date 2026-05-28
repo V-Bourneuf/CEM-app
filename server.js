@@ -12,6 +12,8 @@ require('dotenv').config();
 const db = require('./db');
 db.open();
 
+const { getAdminVerdict } = require('./admin/auth');
+
 const app = express();
 
 // Behind nginx/ALB on EC2, trust the X-Forwarded-* headers
@@ -54,13 +56,6 @@ app.get('/', (req, res) => {
 });
 
 app.get('/auth/saml', passport.authenticate('saml', { failureRedirect: '/' }));
-
-// Admin entry point: same SAML flow, but the callback redirects to /admin/dashboard
-// after a successful sign-in (instead of rendering the public dashboard).
-app.get('/auth/saml/admin', (req, res, next) => {
-    req.session.postLoginRedirect = '/admin/dashboard';
-    passport.authenticate('saml', { failureRedirect: '/' })(req, res, next);
-});
 
 app.post('/login/callback',
     passport.authenticate('saml', { failureRedirect: '/' }),
@@ -128,21 +123,9 @@ app.post('/login/callback',
             attributes:   req.user.attributes || {},
         };
 
-        // Compute admin status: bootstrap allowlist OR has an admin-granting entitlement
-        // (mirrors admin/router.js's isAdminRequest)
-        const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-        const emailLower  = (userData.email || '').toLowerCase();
-        const isBootstrapAdmin    = adminEmails.includes(emailLower);
-        const isEntitlementAdmin  = !!dbUser && db.Grants.hasAdminGrant(dbUser.id);
-        const isAdmin             = isBootstrapAdmin || isEntitlementAdmin;
-
-        // If the user came in via the admin entry point, redirect to /admin/dashboard
-        // (only allow same-origin paths starting with "/" to avoid open-redirect abuse).
-        const target = req.session && req.session.postLoginRedirect;
-        if (target && typeof target === 'string' && target.startsWith('/') && !target.startsWith('//')) {
-            delete req.session.postLoginRedirect;
-            return res.redirect(target);
-        }
+        // Compute admin status using the same logic the /admin gate uses, so the
+        // dashboard's "Admin →" chip never lies about who can actually get in.
+        const isAdmin = getAdminVerdict(req).ok;
 
         res.render('dashboard', {
             user: userData,

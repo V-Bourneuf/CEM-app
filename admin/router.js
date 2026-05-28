@@ -20,6 +20,7 @@ const path    = require('path');
 const basicAuth = require('express-basic-auth');
 const db = require('../db');
 const { Entitlements, Users, Grants, Profiles } = db;
+const { getAdminVerdict } = require('./auth');
 
 const router = express.Router();
 
@@ -52,64 +53,33 @@ function deniedPage(res, status, headline, body, ctaHref, ctaText) {
 </div></div></body></html>`);
 }
 
-// Admin authorization is granted via two paths:
-//   1. Bootstrap allowlist — emails listed in ADMIN_EMAILS env var (intended for the
-//      first/initial admin and emergency access; doesn't require a DB record).
-//   2. Entitlement-based — the SAML-authenticated user is provisioned in our DB
-//      and holds at least one entitlement flagged grants_admin = 1 (the canonical,
-//      delegable path; assign someone the App Admin role in Okta IGA and they
-//      become an admin in the CEM App after SCIM provisioning).
-function isAdminRequest(req) {
-    if (!req.isAuthenticated || !req.isAuthenticated()) return { ok: false, reason: 'unauthenticated' };
-    const email = String(req.user.nameID || req.user.email || '').toLowerCase();
-
-    const allowlist = (process.env.ADMIN_EMAILS || '')
-        .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-    if (allowlist.includes(email)) return { ok: true, via: 'bootstrap', email };
-
-    const dbUser = Users.findByUserName(email) || (email && Users.findByEmail(email));
-    if (dbUser && Grants.hasAdminGrant(dbUser.id)) {
-        return { ok: true, via: 'entitlement', email, dbUserId: dbUser.id };
-    }
-
-    return { ok: false, reason: 'not-admin', email };
-}
-
 function adminGate(basicAuthInstance) {
     return (req, res, next) => {
-        const samlConfigured = (process.env.ADMIN_EMAILS || '').trim().length > 0
-                            || db && true;   // SAML mode whenever the gate has any allowlist or DB
-
-        if (samlConfigured) {
-            const verdict = isAdminRequest(req);
-            if (verdict.ok) {
-                req.adminVerdict = verdict;
-                return next();
-            }
-            if (verdict.reason === 'unauthenticated') {
-                return deniedPage(res, 401,
-                    'Sign in required',
-                    'Admin pages are gated by Okta. Please sign in first, then return to <code>/admin</code>.',
-                    '/', 'Sign in with Okta');
-            }
-            return deniedPage(res, 403,
-                'Access denied',
-                `Your account <code>${escapeHtml(verdict.email || '(unknown)')}</code> isn't on the CEM App admin allowlist ` +
-                `and hasn't been granted an admin entitlement (e.g. the <code>App Admin</code> role).`,
-                '/', 'Back to home');
+        const verdict = getAdminVerdict(req);
+        if (verdict.ok) {
+            req.adminVerdict = verdict;
+            return next();
         }
-
-        // Legacy HTTP-basic fallback (kept for backwards-compat; only fires if neither
-        // ADMIN_EMAILS nor any admin-granting entitlement exists in the system)
-        if (!process.env.ADMIN_USER || !process.env.ADMIN_PASS) {
-            return res.status(503).type('text/plain').send(
-                'Admin UI disabled. Configure one of:\n' +
-                '  ADMIN_EMAILS=user1@example.com   (bootstrap)\n' +
-                '  enable the Administration profile and grant App Admin to a user\n' +
-                '  ADMIN_USER=admin  ADMIN_PASS=secret  (HTTP basic auth)\n'
-            );
+        if (verdict.reason === 'unauthenticated') {
+            return deniedPage(res, 401,
+                'Sign in required',
+                'Admin pages are gated by Okta. Please sign in first, then return to <code>/admin</code>.',
+                '/', 'Sign in with Okta');
         }
-        return basicAuthInstance(req, res, next);
+        // Authenticated but not authorized.
+        // If neither bootstrap allowlist nor any admin-granting entitlement is configured
+        // for the system at all, we treat /admin as not-yet-set-up and fall back to
+        // the legacy HTTP-basic auth path (if creds exist) — gives operators a way in
+        // before they've wired up Okta-side admin assignments.
+        const noAdminConfigured = (process.env.ADMIN_EMAILS || '').trim().length === 0;
+        if (noAdminConfigured && process.env.ADMIN_USER && process.env.ADMIN_PASS) {
+            return basicAuthInstance(req, res, next);
+        }
+        return deniedPage(res, 403,
+            'Access denied',
+            `Your account <code>${escapeHtml(verdict.email || '(unknown)')}</code> isn't on the CEM App admin allowlist, ` +
+            `doesn't carry an admin-granting SAML attribute, and hasn't been granted an admin entitlement (e.g. the <code>App Admin</code> role).`,
+            '/', 'Back to home');
     };
 }
 
