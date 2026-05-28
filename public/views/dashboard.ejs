@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>CEM App — Dashboard</title>
+    <title>CEM App — Dashboard (<%= flowKey.toUpperCase() %>)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body>
+<body class="theme-<%= theme %>">
     <header class="app-header">
         <div class="brand">
-            <span class="brand-mark">CEM</span>
+            <span class="brand-mark"><%= flowKey.toUpperCase() %></span>
             <span>CEM App</span>
+            <span class="brand-flow">
+                <%= flowKey === 'byo' ? 'BYO · Path A' : 'SCIM · Path B' %>
+            </span>
         </div>
         <div class="user-info">
             <span class="user-name"><%= [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email %></span>
@@ -27,10 +30,9 @@
 
     <main class="dashboard">
 
-        <!-- ─────────────────────  SAML assertion  ────────────────────── -->
         <section class="card assertion-card">
             <h2>SAML assertion</h2>
-            <p class="card-subtitle">Attributes received from Okta in this session.</p>
+            <p class="card-subtitle">Attributes received from Okta in this <%= flowKey.toUpperCase() %> session.</p>
 
             <dl class="kv-list">
                 <dt>NameID</dt>
@@ -50,14 +52,14 @@
                     <dd>
                         <% if (Array.isArray(value)) { %>
                             <% if (value.length === 0) { %>
-                                <span class="pill" style="background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb">(empty)</span>
+                                <span class="pill" style="background:#f3f4f6;color:#9ca3af">(empty)</span>
                             <% } else { %>
                                 <% value.forEach(v => { %>
                                     <span class="pill"><%= v %></span>
                                 <% }) %>
                             <% } %>
                         <% } else if (value === null || value === undefined || value === '') { %>
-                            <span class="pill" style="background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb">(empty)</span>
+                            <span class="pill" style="background:#f3f4f6;color:#9ca3af">(empty)</span>
                         <% } else { %>
                             <code><%= value %></code>
                         <% } %>
@@ -66,14 +68,12 @@
             </dl>
         </section>
 
-        <!-- ───────────────────────  Roles  ─────────────────────────── -->
         <section class="card roles-card">
             <h2>Roles</h2>
             <p class="card-subtitle">
                 All roles defined in the CEM App catalog.
                 <span class="granted-marker">●</span> = granted to you.
             </p>
-
             <ul class="entitlement-list">
                 <% roleCatalog.forEach(role => {
                     const granted = (entitlements.role || []).includes(role.value);
@@ -88,14 +88,12 @@
             </ul>
         </section>
 
-        <!-- ─────────────────  Access permissions  ──────────────────── -->
         <section class="card access-card">
             <h2>Access permissions</h2>
             <p class="card-subtitle">
                 All access permissions defined in the CEM App catalog.
                 <span class="granted-marker">●</span> = granted to you.
             </p>
-
             <ul class="entitlement-list">
                 <% accessCatalog.forEach(access => {
                     const granted = (entitlements.access || []).includes(access.value);
@@ -110,12 +108,11 @@
             </ul>
         </section>
 
-        <!-- ──────────────────  Provenance footer  ─────────────────── -->
         <p class="provenance-note <%= provisionedFromDb ? 'from-scim' : 'from-saml' %>">
             <% if (provisionedFromDb) { %>
                 ✓ Grants resolved from SCIM-provisioned database record
             <% } else { %>
-                ⚡ Grants resolved from SAML attributes (user not yet provisioned via SCIM)
+                ⚡ Grants resolved from SAML attributes (user not provisioned via SCIM)
             <% } %>
         </p>
     </main>

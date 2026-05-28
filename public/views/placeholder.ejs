@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>CEM App — <%= flowKey.toUpperCase() %> not configured</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="theme-<%= theme %>">
+    <div class="placeholder-shell">
+        <div class="placeholder-card">
+            <h1>The <code><%= flowKey.toUpperCase() %></code> flow isn't configured yet</h1>
+            <p>
+                No SAML profile has been saved at <code>profiles/<%= flowKey %>/</code>.
+                You can set it up either way:
+            </p>
+            <pre># From the command line (interactive)
+node server.js --setup <%= flowKey %>
+
+# Or in the admin UI
+/admin/integrations</pre>
+            <a class="btn-okta" href="/">Back to landing</a>
+        </div>
+    </div>
+</body>
+</html>

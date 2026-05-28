@@ -1,95 +1,274 @@
 /* ─────────────────────────────────────────────────────────────────────
-   CEM App — minimalist, Okta-inspired stylesheet
-   Used by login.ejs and dashboard.ejs.
+   CEM App — Okta-palette stylesheet with Playfair Display headings
+   Two flow themes: .theme-byo (orange / blue) and .theme-scim (purple).
    ───────────────────────────────────────────────────────────────────── */
 
 :root {
-    --okta-blue:        #007dc1;
-    --okta-blue-dark:   #00598a;
-    --okta-blue-soft:   #e6f3fb;
-    --okta-ink:         #1d1d1d;
-    --okta-ink-muted:   #5e6166;
-    --okta-line:        #e1e1e1;
-    --okta-bg:          #fafafa;
-    --okta-card:        #ffffff;
-    --granted-green:    #2e8b57;
-    --granted-bg:       #ecf8f1;
-    --warning-amber:    #b86b00;
-    --code-bg:          #f3f4f6;
-    --shadow-sm:        0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
-    --shadow-md:        0 8px 24px rgba(15,23,42,0.08);
-    --radius:           8px;
-    --radius-lg:        12px;
+    /* ─── Okta brand palette ─────────────────────────────────────── */
+    /* Primary colors */
+    --okta-black:       #000000;
+    --okta-neutral-100: #FBFBFA;
+    --okta-neutral-200: #ECE8E4;
+    --okta-neutral-300: #E0DAD2;
+    --okta-navy:        #00033E;
+    --okta-blue-200:    #7398FF;
+    --okta-blue-300:    #0131FF;
+    --okta-blue-400:    #001FA5;
+    --okta-orange-200:  #FF9665;
+    --okta-orange-300:  #FF6217;
+    --okta-purple-200:  #BC6DFF;
+    --okta-purple-300:  #9921FE;
+
+    /* Functional aliases */
+    --ink:           var(--okta-black);
+    --ink-muted:     #5e6166;
+    --bg:            var(--okta-neutral-100);
+    --card:          #ffffff;
+    --line:          var(--okta-neutral-300);
+    --code-bg:       #f3f4f6;
+
+    /* Default accent (admin + landing default) */
+    --accent:        var(--okta-blue-300);
+    --accent-soft:   #e7edff;
+    --accent-dark:   var(--okta-blue-400);
+    --accent-on:     #ffffff;
+
+    --granted-green: #2e8b57;
+    --granted-bg:    #ecf8f1;
+    --warning:       var(--okta-orange-300);
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-md: 0 12px 28px rgba(0,3,62,0.08);
+    --radius:    8px;
+    --radius-lg: 14px;
+
+    --font-display: 'Playfair Display', 'Times New Roman', Georgia, serif;
+    --font-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono:    'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
 }
+
+/* ─── per-flow theme overrides ────────────────────────────────────── */
+
+.theme-byo {
+    --accent:      var(--okta-orange-300);
+    --accent-soft: #ffe8db;
+    --accent-dark: #C84807;
+    --accent-on:   #ffffff;
+    --accent-2:    var(--okta-blue-300);
+}
+
+.theme-scim {
+    --accent:      var(--okta-purple-300);
+    --accent-soft: #f1e2ff;
+    --accent-dark: #6e0fc1;
+    --accent-on:   #ffffff;
+    --accent-2:    var(--okta-blue-300);
+}
+
+/* ─── reset + base ────────────────────────────────────────────────── */
 
 * { box-sizing: border-box; }
 
 html, body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: var(--okta-ink);
-    background: var(--okta-bg);
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--bg);
     -webkit-font-smoothing: antialiased;
-    line-height: 1.5;
+    line-height: 1.55;
+}
+
+h1, h2, h3, .display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
 }
 
 code, pre {
-    font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.875em;
 }
 
-a { color: var(--okta-blue); text-decoration: none; }
+a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ── Login page ──────────────────────────────────────────────────── */
+/* ─── landing page (flow picker) ─────────────────────────────────── */
 
-.login-shell {
+.landing {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background:
+        radial-gradient(900px 500px at 15% -5%, rgba(255,98,23,0.06), transparent 70%),
+        radial-gradient(900px 500px at 100% 100%, rgba(153,33,254,0.06), transparent 70%),
+        var(--bg);
+}
+.landing-hero {
+    max-width: 760px;
+    text-align: center;
+    margin-bottom: 56px;
+}
+.landing-hero .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--okta-navy);
+    margin-bottom: 16px;
+}
+.landing-hero h1 {
+    font-size: 52px;
+    margin: 0 0 16px;
+    color: var(--okta-navy);
+}
+.landing-hero p {
+    font-size: 17px;
+    color: var(--ink-muted);
+    margin: 0;
+}
+
+.flow-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    max-width: 920px;
+    width: 100%;
+}
+@media (max-width: 720px) { .flow-grid { grid-template-columns: 1fr; } }
+
+.flow-card {
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    padding: 36px 32px;
+    box-shadow: var(--shadow-md);
+    border-top: 6px solid var(--accent);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.flow-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 36px rgba(0,3,62,0.12);
+    text-decoration: none;
+}
+.flow-card .flow-tag {
+    display: inline-block;
+    align-self: flex-start;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.flow-card h2 {
+    margin: 0;
+    font-size: 28px;
+    color: var(--okta-navy);
+}
+.flow-card .flow-summary {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: 15px;
+}
+.flow-card ul {
+    margin: 8px 0 0;
+    padding: 0 0 0 18px;
+    color: var(--ink-muted);
+    font-size: 14px;
+    line-height: 1.7;
+}
+.flow-card ul li::marker { color: var(--accent); }
+.flow-card .flow-cta {
+    margin-top: auto;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 15px;
+    align-self: flex-start;
+}
+.flow-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.flow-card.disabled:hover { transform: none; box-shadow: var(--shadow-md); }
+.flow-card.disabled .flow-cta { color: var(--ink-muted); }
+
+.landing-footer {
+    margin-top: 56px;
+    color: var(--ink-muted);
+    font-size: 13px;
+    text-align: center;
+}
+.landing-footer code { background: var(--code-bg); padding: 2px 8px; border-radius: 4px; }
+
+/* ─── login + placeholder shells (flow-themed) ───────────────────── */
+
+.login-shell, .message-shell, .placeholder-shell {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background:
-        radial-gradient(1000px 600px at 20% -10%, rgba(0,125,193,0.08), transparent 60%),
-        radial-gradient(800px 500px at 100% 100%, rgba(0,125,193,0.05), transparent 60%),
-        var(--okta-bg);
     padding: 24px;
+    background:
+        radial-gradient(900px 500px at 25% -5%, var(--accent-soft), transparent 70%),
+        var(--bg);
 }
 
-.login-card {
-    background: var(--okta-card);
+.login-card, .message-card, .placeholder-card {
+    background: var(--card);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
     width: 100%;
-    max-width: 420px;
-    padding: 48px 40px 40px;
+    max-width: 440px;
+    padding: 48px 40px;
     text-align: center;
 }
 
-.login-mark {
+.login-card .login-mark {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     margin: 0 auto 20px;
-    border-radius: 12px;
-    background: var(--okta-blue);
-    color: #fff;
+    border-radius: 14px;
+    background: var(--accent);
+    color: var(--accent-on);
+    font-family: var(--font-display);
     font-weight: 700;
-    font-size: 18px;
+    font-size: 20px;
     letter-spacing: -0.02em;
 }
-
 .login-card h1 {
-    font-size: 22px;
-    font-weight: 600;
-    margin: 0 0 8px;
-    letter-spacing: -0.01em;
+    font-size: 28px;
+    margin: 0 0 6px;
+    color: var(--okta-navy);
 }
-
+.login-card .login-flow-label {
+    display: inline-block;
+    margin-bottom: 16px;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
 .login-card p {
-    color: var(--okta-ink-muted);
+    color: var(--ink-muted);
     margin: 0 0 28px;
     font-size: 14px;
 }
@@ -100,8 +279,8 @@ a:hover { text-decoration: underline; }
     justify-content: center;
     gap: 10px;
     width: 100%;
-    background: var(--okta-blue);
-    color: #fff;
+    background: var(--accent);
+    color: var(--accent-on);
     border: 0;
     padding: 12px 20px;
     font-size: 15px;
@@ -110,50 +289,57 @@ a:hover { text-decoration: underline; }
     cursor: pointer;
     transition: background-color 0.15s ease, transform 0.05s ease;
     text-decoration: none;
+    font-family: var(--font-body);
 }
-.btn-okta:hover { background: var(--okta-blue-dark); text-decoration: none; }
+.btn-okta:hover { background: var(--accent-dark); text-decoration: none; }
 .btn-okta:active { transform: translateY(1px); }
-
-.btn-okta__chevron {
-    width: 16px; height: 16px; opacity: 0.85;
-}
-
+.btn-okta__chevron { width: 16px; height: 16px; opacity: 0.85; }
 
 .login-footnote {
-    margin-top: 32px;
+    margin-top: 28px;
     font-size: 12px;
-    color: var(--okta-ink-muted);
+    color: var(--ink-muted);
 }
 .login-footnote code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
 
-/* ── App header (dashboard, admin) ────────────────────────────────── */
+/* ─── app header (dashboard, admin) ──────────────────────────────── */
 
 .app-header {
-    background: var(--okta-card);
-    border-bottom: 1px solid var(--okta-line);
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    border-top: 4px solid var(--accent);
     padding: 14px 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
-
 .brand {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     font-weight: 600;
     font-size: 16px;
-    letter-spacing: -0.01em;
+    color: var(--okta-navy);
 }
 .brand .brand-mark {
-    width: 28px; height: 28px;
-    background: var(--okta-blue);
-    color: #fff;
-    border-radius: 6px;
+    width: 32px; height: 32px;
+    background: var(--accent);
+    color: var(--accent-on);
+    border-radius: 8px;
     display: inline-flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 13px;
+    font-family: var(--font-display);
+    font-weight: 700; font-size: 14px;
 }
-
+.brand .brand-flow {
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
 .user-info {
     display: flex;
     align-items: center;
@@ -161,36 +347,37 @@ a:hover { text-decoration: underline; }
     font-size: 14px;
 }
 .user-info .user-name { font-weight: 500; }
-.user-info .user-email { color: var(--okta-ink-muted); }
+.user-info .user-email { color: var(--ink-muted); }
 
 .logout-link, .admin-tab {
     font-size: 13px;
     padding: 6px 12px;
-    border: 1px solid var(--okta-line);
+    border: 1px solid var(--line);
     border-radius: 6px;
     transition: all 0.15s ease;
+    font-family: var(--font-body);
 }
 .logout-link {
-    color: var(--okta-ink-muted);
+    color: var(--ink-muted);
 }
 .logout-link:hover {
-    color: var(--okta-ink);
-    border-color: var(--okta-ink-muted);
+    color: var(--ink);
+    border-color: var(--ink-muted);
     text-decoration: none;
 }
 .admin-tab {
-    color: var(--okta-blue);
-    border-color: var(--okta-blue);
-    background: var(--okta-blue-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
     font-weight: 500;
 }
 .admin-tab:hover {
-    background: var(--okta-blue);
-    color: #fff;
+    background: var(--accent);
+    color: var(--accent-on);
     text-decoration: none;
 }
 
-/* ── Dashboard layout ─────────────────────────────────────────────── */
+/* ─── dashboard layout ───────────────────────────────────────────── */
 
 .dashboard {
     max-width: 1080px;
@@ -202,23 +389,20 @@ a:hover { text-decoration: underline; }
 }
 
 .card {
-    background: var(--okta-card);
-    border: 1px solid var(--okta-line);
+    background: var(--card);
+    border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     padding: 24px 28px;
 }
-
 .card h2 {
     margin: 0 0 4px;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-size: 22px;
+    color: var(--okta-navy);
 }
-
 .card-subtitle {
     margin: 0 0 20px;
-    color: var(--okta-ink-muted);
+    color: var(--ink-muted);
     font-size: 13px;
 }
 .card-subtitle .granted-marker {
@@ -226,24 +410,24 @@ a:hover { text-decoration: underline; }
     font-weight: 700;
 }
 
-/* ── SAML assertion table ─────────────────────────────────────────── */
+/* ─── SAML assertion table ───────────────────────────────────────── */
 
 .assertion-card .kv-list {
     display: grid;
     grid-template-columns: 200px 1fr;
     gap: 0;
     margin: 0;
-    border-top: 1px solid var(--okta-line);
+    border-top: 1px solid var(--line);
 }
 .assertion-card dt,
 .assertion-card dd {
     padding: 12px 16px;
-    border-bottom: 1px solid var(--okta-line);
+    border-bottom: 1px solid var(--line);
     margin: 0;
 }
 .assertion-card dt {
-    background: #fbfbfb;
-    color: var(--okta-ink-muted);
+    background: #fbfbfa;
+    color: var(--ink-muted);
     font-size: 13px;
     font-weight: 500;
     word-break: break-word;
@@ -258,13 +442,12 @@ a:hover { text-decoration: underline; }
     border-radius: 4px;
     word-break: break-all;
 }
-.assertion-card dd .pill + .pill { margin-left: 6px; }
 
 .pill {
     display: inline-block;
-    background: var(--okta-blue-soft);
-    color: var(--okta-blue-dark);
-    border: 1px solid #c5e2f3;
+    background: var(--accent-soft);
+    color: var(--accent-dark);
+    border: 1px solid var(--line);
     border-radius: 999px;
     padding: 2px 10px;
     font-size: 12px;
@@ -272,29 +455,27 @@ a:hover { text-decoration: underline; }
     margin: 2px 4px 2px 0;
 }
 
-/* ── Entitlement list (roles + access) ────────────────────────────── */
+/* ─── entitlement list (roles + access) ──────────────────────────── */
 
 .entitlement-list {
     list-style: none;
     margin: 0;
     padding: 0;
-    border: 1px solid var(--okta-line);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
     overflow: hidden;
 }
-
 .entitlement-item {
     display: grid;
     grid-template-columns: 28px 1fr auto auto;
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    border-top: 1px solid var(--okta-line);
+    border-top: 1px solid var(--line);
     font-size: 14px;
     background: #fff;
 }
 .entitlement-item:first-child { border-top: 0; }
-
 .entitlement-item .entitlement-icon {
     color: #cdd2d8;
     font-size: 16px;
@@ -310,13 +491,13 @@ a:hover { text-decoration: underline; }
     font-weight: 600;
     color: var(--granted-green);
 }
-.entitlement-item .entitlement-name { color: var(--okta-ink-muted); }
+.entitlement-item .entitlement-name { color: var(--ink-muted); }
 .entitlement-item .entitlement-column {
-    color: var(--okta-ink-muted);
+    color: var(--ink-muted);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    border: 1px solid var(--okta-line);
+    border: 1px solid var(--line);
     border-radius: 4px;
     padding: 2px 8px;
 }
@@ -327,35 +508,35 @@ a:hover { text-decoration: underline; }
     font-size: 12px;
 }
 
-/* ── Provenance footer ─────────────────────────────────────────────── */
+/* ─── provenance footer ──────────────────────────────────────────── */
 
 .provenance-note {
     text-align: center;
-    color: var(--okta-ink-muted);
+    color: var(--ink-muted);
     font-size: 13px;
     padding: 8px 16px;
     margin: 0;
 }
 .provenance-note.from-scim { color: var(--granted-green); }
-.provenance-note.from-saml { color: var(--warning-amber); }
+.provenance-note.from-saml { color: var(--warning); }
 
-/* ── Access-denied / sign-in-required pages ───────────────────────── */
+/* ─── access-denied / placeholder pages ──────────────────────────── */
 
-.message-shell {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 24px;
-    background: var(--okta-bg);
+.message-card h1, .placeholder-card h1 {
+    margin: 0 0 12px;
+    font-size: 24px;
+    color: var(--okta-navy);
 }
-.message-card {
-    background: var(--okta-card);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-    padding: 48px 40px;
-    max-width: 460px;
+.message-card p, .placeholder-card p {
+    color: var(--ink-muted);
+    margin: 0 0 24px;
+    font-size: 14px;
 }
-.message-card h1 { margin: 0 0 12px; font-size: 22px; font-weight: 600; }
-.message-card p  { color: var(--okta-ink-muted); margin: 0 0 24px; font-size: 14px; }
+.placeholder-card pre {
+    background: var(--code-bg);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    text-align: left;
+    overflow-x: auto;
+}

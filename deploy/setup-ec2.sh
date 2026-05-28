@@ -15,9 +15,13 @@
 #   6. Start the service
 #
 # Pre-reqs the operator must do AFTER this script:
-#   - cd /opt/cemapp && sudo -u cemapp node server.js --prompt   (creates 'production' profile)
-#     OR populate /opt/cemapp/.env.production with OKTA_ENTRYPOINT/OKTA_ISSUER/SCIM_TOKEN/etc.
-#   - Place saml.pem at /opt/cemapp/profiles/production/saml.pem (or root if using .env mode)
+#   - Configure ONE OR BOTH SAML profiles. Two flows ship in this app:
+#       /byo  → BYO entitlements via SAML attribute statements
+#       /scim → Governance with SCIM 2.0
+#     Each flow needs its own Okta app integration. Set them up via:
+#       sudo -u cemapp node /opt/cemapp/server.js --setup byo
+#       sudo -u cemapp node /opt/cemapp/server.js --setup scim
+#     OR via the admin UI at /admin/integrations after first sign-in.
 
 set -euo pipefail
 
@@ -104,10 +108,12 @@ certbot --nginx --non-interactive --agree-tos --email "$EMAIL" -d "$DOMAIN" --re
 echo
 echo "==> Done. Next steps for the operator:"
 echo
-echo "   1) Configure the SAML profile interactively:"
-echo "        sudo -u cemapp node $APP_DIR/server.js --prompt"
-echo "      (Choose 'create new', name it 'production', supply Okta entry point + cert + SCIM token + admin creds.)"
-echo "      Stop with Ctrl-C once profile is saved."
+echo "   1) Configure each SAML profile interactively (one or both — at least one is required):"
+echo "        sudo -u cemapp node $APP_DIR/server.js --setup byo"
+echo "        sudo -u cemapp node $APP_DIR/server.js --setup scim"
+echo "      Each prompts for Okta entry point + Audience URI + signing cert."
+echo "      The /scim profile additionally prompts for a SCIM bearer token."
+echo "      Either profile can supply 'adminEmails' for the bootstrap admin allowlist."
 echo
 echo "   2) Start the service:"
 echo "        sudo systemctl start cemapp"
@@ -117,5 +123,8 @@ echo "   3) Tail logs:"
 echo "        sudo journalctl -u cemapp -f"
 echo
 echo "   The app will be reachable at: https://$DOMAIN"
-echo "   SCIM base URL for Okta:        https://$DOMAIN/scim/v2"
-echo "   Admin UI:                       https://$DOMAIN/admin"
+echo "     Landing (flow picker):          https://$DOMAIN/"
+echo "     BYO flow (Path A):              https://$DOMAIN/byo"
+echo "     SCIM flow (Path B):             https://$DOMAIN/scim"
+echo "     SCIM Base URL for Okta:         https://$DOMAIN/scim/v2"
+echo "     Admin UI:                        https://$DOMAIN/admin"

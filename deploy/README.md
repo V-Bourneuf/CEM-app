@@ -37,27 +37,34 @@ The setup script will:
 5. Provision a Let's Encrypt cert via `certbot --nginx`
 6. Restart nginx
 
-## After setup — configure the SAML profile
+## After setup — configure the SAML profiles
 
-The systemd unit is configured to load a profile named `production`. Create it once:
+This app runs **two parallel SAML flows**, each backed by its own Okta app
+integration. Set up one or both:
 
 ```bash
-sudo -u cemapp /usr/bin/node /opt/cemapp/server.js --prompt
+# Path A — BYO entitlements
+sudo -u cemapp /usr/bin/node /opt/cemapp/server.js --setup byo
+
+# Path B — Governance with SCIM 2.0
+sudo -u cemapp /usr/bin/node /opt/cemapp/server.js --setup scim
 ```
 
-You'll be prompted for:
+Each prompts for:
 
-| Field                  | What to put                                              |
-|------------------------|----------------------------------------------------------|
-| Profile name           | `production`                                             |
-| Okta Entry Point       | App's IdP SSO URL (Sign On tab → ...okta.com/.../sso/saml) |
-| SP Issuer / Audience URI | `https://cemapp.example.com/cemapp` (your domain)      |
-| Skip SAML attributes   | `firstName,lastName,email` (default is fine)             |
-| Path to signing cert   | Paste in the cert downloaded from Okta Sign On tab       |
-| SCIM bearer token      | Generate one: `openssl rand -hex 32`                     |
-| Admin emails           | Comma-separated Okta emails to allow into `/admin`       |
+| Field                    | What to put                                                                |
+|--------------------------|-----------------------------------------------------------------------------|
+| Okta SSO URL             | App's IdP SSO URL (Sign On tab → ...okta.com/.../sso/saml)                  |
+| SP Issuer / Audience URI | `https://cemapp.example.com/byo` or `.../scim` (matches the flow path)      |
+| Skip SAML attributes     | `firstName,lastName,email` (default is fine)                                |
+| Path to signing cert     | Paste in the cert downloaded from Okta Sign On tab                          |
+| SCIM bearer token        | **scim flow only** — generate one: `openssl rand -hex 32`                   |
+| Admin emails             | Comma-separated Okta emails to allow into `/admin` (optional)               |
 
-Stop the prompt with Ctrl-C once the profile is saved (it lives at `/opt/cemapp/profiles/production/`).
+Profiles are saved at `/opt/cemapp/profiles/byo/` and `/opt/cemapp/profiles/scim/`.
+
+Alternatively, configure them via the admin UI at `/admin/integrations`
+once the service is running and you have at least one flow up to sign in with.
 
 ## Start the service
 
@@ -69,31 +76,43 @@ sudo journalctl -u cemapp -f        # tail logs
 
 You should see:
 ```
-Loaded profile:  production
-SCIM endpoint:   https://cemapp.example.com/scim/v2
-Admin UI:        https://cemapp.example.com/admin   (auth: Okta SAML — you@example.com)
-Listening on port 1337
+CEM App listening on https://cemapp.example.com
+
+Flows:
+  /byo   → ✓ configured
+  /scim  → ✓ configured
+
+SCIM endpoint:    https://cemapp.example.com/scim/v2  (used by the /scim flow's Okta app)
+Admin UI:         https://cemapp.example.com/admin
 ```
 
 ## Configure Okta to point at the EC2 instance
 
-In the Okta admin console, on your SAML app:
+You need **two separate Okta app integrations**, one per flow.
 
-**1. Update SAML config** to point at the public URL:
-- Single sign-on URL: `https://cemapp.example.com/login/callback`
-- Audience URI: `https://cemapp.example.com/cemapp`
+**1. BYO app (Path A) — generic SAML 2.0 template:**
+- Single sign-on URL: `https://cemapp.example.com/byo/login/callback`
+- Audience URI: `https://cemapp.example.com/byo`
+- Enable Identity Governance → Governance Engine
+- Define entitlement attributes via Identity Governance → Entitlement Management
+- SAML Attribute Statements:
+  - `access` (Basic) → `appuser.access`
+  - `role`   (Basic) → `appuser.role`
 
-**2. Configure SCIM provisioning** (for entitlement discovery + assignment):
-- App → **Provisioning → Configure API Integration**
-- Base URL: `https://cemapp.example.com/scim/v2`
-- API Token: the `SCIM_TOKEN` you set during profile setup
-- ✅ Test API Credentials — should succeed
-- Provisioning → To App → enable: Create Users, Update User Attributes
-- Provisioning → Integration → **Import Resources** → discovers the entitlement catalog
+**2. SCIM app (Path B) — (Header Auth) Governance with SCIM 2.0:**
+- SSO ACS URL Override: `https://cemapp.example.com/scim/login/callback`
+- Audience URI Override: `https://cemapp.example.com/scim`
+- Enable Identity Governance → Governance Engine
+- Provisioning → Configure API Integration:
+  - Base URL: `https://cemapp.example.com/scim/v2`
+  - API Token: the SCIM token you saved in the `scim` profile
+- Provisioning → To App → enable Create Users / Update User Attributes / Deactivate Users
+- Provisioning → Integration → Import Resources → populates the IGA catalog from `/scim/v2/Roles` + `/scim/v2/Entitlements`
 
-**3. Verify discovery worked:**
-- App → Entitlement Management tab → should show your active-profile entitlements imported
-- Define Entitlement Bundles, attach access policies, etc.
+**Verify:**
+- `https://cemapp.example.com/` → flow picker landing
+- `/byo` → orange-themed login → BYO app authenticates → `/byo/dashboard`
+- `/scim` → purple-themed login → SCIM app authenticates → `/scim/dashboard`
 
 ## Operations
 
@@ -118,9 +137,9 @@ sudo crontab -u cemapp -e
 
 ### Rotating the Okta SCIM token
 
-Edit the production profile:
+Edit the SCIM profile:
 ```bash
-sudo -u cemapp vi /opt/cemapp/profiles/production/config.json
+sudo -u cemapp vi /opt/cemapp/profiles/scim/config.json
 # update "scimToken" value
 sudo systemctl restart cemapp
 # Then update the matching value in Okta admin → Provisioning → API Integration
@@ -129,12 +148,12 @@ sudo systemctl restart cemapp
 ### Adding admin users
 
 Either:
-- Add the Okta email to `adminEmails` in `/opt/cemapp/profiles/production/config.json` and restart, OR
+- Add the Okta email to `adminEmails` in either `/opt/cemapp/profiles/byo/config.json` or `/opt/cemapp/profiles/scim/config.json` (both lists are unioned at startup) and restart, OR
 - Enable the **Administration** profile in `/admin/profiles`, then assign the **App Admin** role to the user via Okta IGA — the SCIM PATCH grants admin access automatically.
 
 ## Troubleshooting
 
-**`cemapp.service` fails to start** → check `journalctl -u cemapp -n 100`. Most common cause: missing or unreadable `profiles/production/saml.pem` or `config.json`.
+**`cemapp.service` fails to start** → check `journalctl -u cemapp -n 100`. Most common cause: malformed `profiles/byo/config.json` or `profiles/scim/config.json` (or unreadable `saml.pem`). The server tolerates a *missing* profile dir (the missing flow shows a placeholder) but will crash on a malformed one.
 
 **Okta SCIM "Test API Credentials" fails** → verify the SCIM token in `config.json` matches what you pasted into Okta, and that nginx is forwarding to Node. Hit `https://your-domain/scim/v2/ServiceProviderConfig` with `Authorization: Bearer <token>` from anywhere — should return JSON.
 

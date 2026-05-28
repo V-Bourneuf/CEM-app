@@ -8,7 +8,7 @@ User=cemapp
 Group=cemapp
 WorkingDirectory=/opt/cemapp
 EnvironmentFile=/opt/cemapp/.env.production
-ExecStart=/usr/bin/node server.js --profile production
+ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5
 

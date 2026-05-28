@@ -1,166 +1,158 @@
 # CEM App
 
-A reference application that demonstrates two distinct ways to integrate a custom
-SaaS app with **Okta Identity Governance — Customer Entitlement Management (CEM)**.
+A reference application that demonstrates **two distinct ways** to integrate
+a custom SaaS app with **Okta Identity Governance — Customer Entitlement Management
+(CEM)** — and runs **both flows simultaneously** in the same server, on
+separate paths, with their own SAML configurations and visual themes.
 
-It's a single Node.js / Express server running:
-
-| Path | What it serves |
-|------|----------------|
-| `/`           | Public app — SAML SSO login + a dashboard that shows the live SAML assertion plus the user's role/access grants |
-| `/scim/v2/*`  | SCIM 2.0 server — Users, Groups (stub), Roles, Entitlements, Schemas, ServiceProviderConfig, ResourceTypes |
-| `/admin/*`    | Admin UI — entitlement catalog management, profile bundles, provisioned-user view (SAML-gated) |
+| URL | Flow | Theme | Okta integration |
+|-----|------|-------|------------------|
+| `/`              | Landing page (flow picker)                | Neutral / Okta navy   | — |
+| `/byo`           | **Path A — BYO Entitlements**             | 🟧 Orange + Navy      | Plain SAML 2.0 app on Okta |
+| `/scim`          | **Path B — Governance with SCIM 2.0**     | 🟪 Purple + Navy      | (Header Auth) Governance with SCIM 2.0 |
+| `/scim/v2/*`     | SCIM 2.0 protocol endpoints                | —                     | Used by the `/scim` flow's Okta app |
+| `/admin`         | Admin UI (catalog, integrations, users)    | Neutral               | SAML-gated by either flow's session |
 
 The bundled demo dataset uses a kitefoil designer/retailer scenario for
-illustration; its entitlement catalog is organized into "profiles" — Retail,
-Engineering & Manufacturing, R&D / Design, Software & DevOps, and an
-Administration profile that grants admin access in-app. Replace these with
-whatever entitlements fit your own use case (`db/profiles.js`).
+illustration; replace `db/profiles.js` with whatever entitlements fit your
+own use case.
 
 ---
 
 ## Architecture
 
 ```
-                     ┌──────────────────────────────────────────────────┐
-                     │                  Okta Tenant                      │
-                     │  • SAML IdP    • SCIM provisioning   • IGA / CEM │
-                     └────────┬───────────────────────────┬─────────────┘
-                              │  SAML AuthnRequest          │  SCIM PATCH
-                              │  (POST AssertionConsumer)   │  (Users + grants)
-                              ▼                             ▼
-                ┌──────────────────────────────────────────────────┐
-                │                  CEM App (this repo)              │
-                │ ┌────────────┐  ┌────────────┐  ┌──────────────┐ │
-                │ │ Public app │  │ SCIM 2.0   │  │ Admin UI     │ │
-                │ │ login →    │  │ /scim/v2/* │  │ /admin/*     │ │
-                │ │ dashboard  │  │            │  │ (SAML-gated) │ │
-                │ └─────┬──────┘  └─────┬──────┘  └──────┬───────┘ │
-                │       └─────┬─────────┴─────────┬──────┘         │
-                │             ▼                   ▼                 │
-                │        ┌──────────────────────────────┐           │
-                │        │  SQLite (better-sqlite3)     │           │
-                │        │  entitlements + users +      │           │
-                │        │  user_entitlements (grants)  │           │
-                │        └──────────────────────────────┘           │
-                └──────────────────────────────────────────────────┘
+                    ┌────────────────────────┐    ┌────────────────────────┐
+                    │  Okta App #1 — BYO     │    │  Okta App #2 — SCIM    │
+                    │  (plain SAML 2.0)      │    │  (Governance w/ SCIM)  │
+                    └────────────┬───────────┘    └─────┬───────────┬──────┘
+                                 │ SAML                  │ SAML       │ SCIM
+                                 ▼                       ▼            ▼
+                       ┌──────────────────────────────────────────────────┐
+                       │                  CEM App (this repo)              │
+                       │ ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌─────┐ │
+                       │ │  /byo    │  │  /scim   │  │/scim/v2 │  │/admin│ │
+                       │ │  Path A  │  │  Path B  │  │ SCIM    │  │      │ │
+                       │ │  🟧      │  │  🟪      │  │ server  │  │      │ │
+                       │ └────┬─────┘  └────┬─────┘  └────┬────┘  └──┬───┘ │
+                       │      └──────┬──────┴────────┬────┘          │     │
+                       │             ▼               ▼               ▼     │
+                       │       ┌──────────────────────────────────────┐   │
+                       │       │  SQLite (entitlements + users +      │   │
+                       │       │  user_entitlements, with grants_admin)│   │
+                       │       └──────────────────────────────────────┘   │
+                       └──────────────────────────────────────────────────┘
 ```
 
-The **catalog of roles + access entitlements lives in the app's database**
-(seeded from `db/profiles.js`, manageable via `/admin`). Both Okta integration
-paths below treat this catalog as the source of truth — they differ only in
-*how* Okta gets a copy of it and how user-grant assignments flow.
+The two flows share:
+- The entitlement catalog (`db/profiles.js`, edited via `/admin/profiles`)
+- The provisioned-user table (Path B writes here via SCIM PATCH;
+  Path A doesn't, but Path A users still see all catalog entries on
+  the dashboard with their granted SAML attribute values highlighted)
+- The admin authorization model (`admin/auth.js` — SAML-only)
+
+The two flows differ in:
+- The Okta app integration that authenticates each `/byo/login/callback`
+  vs `/scim/login/callback` (different signing certs, entry points, audiences)
+- Whether grants flow over SAML attributes (Path A) or SCIM PATCH (Path B)
+- The visual theme of `/byo/*` (orange) vs `/scim/*` (purple)
 
 ---
 
 ## Two Okta integration paths
 
-This app supports **two completely different Okta CEM integration models**.
-You can use either or both, depending on what you want to demonstrate.
-
-### Path A — BYO Entitlements via SAML attribute statements
+### Path A — BYO Entitlements via SAML attribute statements (`/byo`)
 
 Use this when:
-- The Okta app is a **plain SAML 2.0** application
-- You want the entitlement catalog to live in the app's database, and you mirror
-  the values into Okta manually (per-app-profile-attribute enums) — Okta is *not*
-  configured to discover the catalog over SCIM
-- Grants flow purely through SAML attributes — no SCIM provisioning required
+- The Okta app integration is a **plain SAML 2.0** application
+- The entitlement catalog values are authored in Okta IGA's **Entitlement
+  Management** UI (per-app-instance) and shipped to the app via SAML
+- No SCIM provisioning required — Okta and the app never talk over SCIM
 
 **On the Okta side:**
 
 1. App Catalog → search a generic SAML 2.0 template (e.g. *SAML 2.0 Test App (Header Auth)*) → **Add Integration**
-2. Configure standard SAML sign-on:
-   - Single sign-on URL: `https://<your-domain>/login/callback`
-   - Audience URI: `https://<your-domain>/cemapp`
+2. Configure SAML sign-on:
+   - Single sign-on URL: `https://<your-domain>/byo/login/callback`
+   - Audience URI: `https://<your-domain>/byo`
    - Name ID format: `EmailAddress`
    - Application username: `Email`
 3. **General → Edit Identity Governance → Governance Engine: Enabled** (requires Okta IGA license)
-4. **Directory → Profile Editor →** the app's user profile → add two custom attributes:
-   - `access` — type **string array**
-   - `role`   — type **string array**
+4. Enable Governance Engine surfaces an **Entitlement Management** view at
+   `/admin/app/em/instance/<appId>/entitlements`. Define your entitlement
+   attributes there — typically `access` (array) and `role` (array) — and
+   populate them with the values from your app's catalog (visible at
+   `/admin/profiles` in this app).
+5. **Sign On → SAML Attribute Statements** — add the two attribute statements
+   the app reads on each login (`req.user.attributes.access`, `req.user.attributes.role`):
 
-   Then mirror the **values** from the app's catalog into each attribute's enum
-   list. The exact values are whatever's currently in your app's catalog
-   (visible in `/admin/profiles`); for the bundled demo profiles they include
-   `deploy_code_to_prod`, `process_pos_sale`, `approve_production_run`,
-   `edit_cad_designs`, etc. for `access`; and `Software Dev`, `Store Associate`,
-   `Production Engineer`, etc. for `role`.
+   | Name      | Name format | Value (Expression)   |
+   |-----------|-------------|----------------------|
+   | `access`  | `Basic`     | `appuser.access`     |
+   | `role`    | `Basic`     | `appuser.role`       |
 
-5. **Sign On → SAML Attribute Statements** — add the **two attribute statements
-   this app expects** (it reads `req.user.attributes.access` and
-   `req.user.attributes.role` on each login):
+   These reference the IGA-managed entitlement attributes you defined in step 4.
+6. **Assignments** — assign users; populate each one's `access` / `role` arrays.
+7. (Optional, IGA-side) Bundles + access policies, as usual.
 
-   | Name      | Name format | Value (Expression)                  |
-   |-----------|-------------|--------------------------------------|
-   | `access`  | `Basic`     | `appuser.entitlements.access`        |
-   | `role`    | `Basic`     | `appuser.entitlements.role`          |
-
-   These expressions bind the per-user app-profile values into the outbound
-   SAML assertion. Without them, the app sees the user but no grants.
-6. **Assignments → Assign to People** — for each user, fill in their `access` / `role` arrays with the values they should have.
-7. (Optional, IGA-side) **Identity Governance → Entitlements → Bundles** — group attribute values into bundles, attach to access policies / requests.
-
-**On the app side:** nothing special. The SAML callback (`server.js`) reads
-`req.user.attributes.access` and `req.user.attributes.role` directly when the
-user has *not* been SCIM-provisioned. The dashboard shows the assertion verbatim
-and highlights the granted entries against the local catalog.
+**On the app side:** save the BYO integration in `/admin/integrations`
+(or set up via `node server.js --setup byo`). The dashboard at
+`/byo/dashboard` reads `req.user.attributes` directly when the user
+isn't SCIM-provisioned — exactly the BYO data path.
 
 **Trade-offs:**
-- ✅ Simplest possible Okta setup — no SCIM token, no provisioning, no public ingress required by Okta.
-- ✅ Catalog values live in the app; Okta just consumes assertions. App can run anywhere reachable by the *user's* browser.
-- ❌ The mirror in Okta has to be **maintained by hand** — every time the catalog changes in the app, you update the app-profile attribute enums in Okta to match.
-- ❌ **Grants only propagate at SAML login** — there's no live channel from Okta to the app between logins. If you change a user's grants in Okta, they take effect on the user's next sign-in.
+- ✅ Simplest possible Okta setup — no SCIM token, no provisioning, no public ingress required from Okta back to the app.
+- ✅ Catalog values authored in Okta; app just consumes assertions.
+- ❌ Keeping Okta's IGA Entitlement Management catalog in sync with the app's catalog is manual.
+- ❌ Grants only propagate at SAML login — no live channel from Okta to the app between logins.
 
-### Path B — Governance with SCIM 2.0 *(Header Auth template)*
+### Path B — Governance with SCIM 2.0 (`/scim`)
 
 Use this when:
-- You want **automated catalog discovery** — Okta pulls roles + entitlements from your `/Roles` and `/Entitlements` endpoints (no manual mirroring)
-- You want **bidirectional provisioning** — Okta SCIM-PATCHes user grants to the app, app reads grants from its own DB at login time
+- You want **automated catalog discovery** — Okta pulls roles + entitlements from the app's `/scim/v2/Roles` and `/scim/v2/Entitlements` endpoints (no manual mirroring)
+- You want **bidirectional provisioning** — Okta SCIM-PATCHes user grants to the app, app reads grants from its own DB at login
 - You want full IGA features (bundles, access policies, certifications) backed by SCIM
 
-> ⚠️ **The app must be reachable from Okta's egress IPs.** Okta's SCIM client
-> calls your `/scim/v2/*` endpoints directly to discover the catalog and push
-> grants. For an EC2 deployment this means port 443 open to 0.0.0.0/0
-> (HTTPS, fronted by Let's Encrypt — see `deploy/README.md`). For local
-> development you'll need a public tunnel like `ngrok`, `cloudflared`, or
-> Tailscale Funnel — Okta cannot reach `http://localhost:1337`.
+> ⚠️ **The app must be reachable from Okta's egress IPs.** Okta's SCIM
+> client calls `/scim/v2/*` directly. For local dev, expose the server
+> with `ngrok http 1337` / `cloudflared tunnel --url http://localhost:1337`
+> / Tailscale Funnel.
 
 **On the Okta side:**
 
 1. App Catalog → search **"Governance"** → pick **(Header Auth) Governance with SCIM 2.0** → **Add Integration**
-   *(this is the template you need — it stamps the AppInstance with `IMPORT_USER_SCHEMA`,
-   which is required for entitlement sync. Generic SCIM 2.0 Test App templates do **not** have this flag.)*
+   *(this template stamps the AppInstance with `IMPORT_USER_SCHEMA`, required for
+   entitlement sync. Generic SCIM 2.0 Test App templates do **not** have this flag.)*
 2. **General → Edit Identity Governance → Governance Engine: Enabled** → **Save → refresh**
 3. **Sign On (SAML)** — fill in the override fields:
-   - SSO ACS URL Override: `https://<your-domain>/login/callback`
-   - Audience URI Override: `https://<your-domain>/cemapp`
-   - Recipient URL Override: `https://<your-domain>/login/callback`
-   - Destination URL Override: `https://<your-domain>/login/callback`
+   - SSO ACS URL Override: `https://<your-domain>/scim/login/callback`
+   - Audience URI Override: `https://<your-domain>/scim`
+   - Recipient URL Override: `https://<your-domain>/scim/login/callback`
+   - Destination URL Override: `https://<your-domain>/scim/login/callback`
    - SAML Attribute Statements: `firstName`, `lastName`, `email` (basic identity only — grants flow over SCIM, not SAML)
 4. **Provisioning → Configure API Integration → Enable API integration**:
    - SCIM 2.0 Base URL: `https://<your-domain>/scim/v2`
    - Authentication: **HTTP Header**
-   - Token: paste your `SCIM_TOKEN` value (raw — Okta does **not** prepend `Bearer `; this app's `scim/auth.js` accepts both forms)
+   - Token: paste the SCIM bearer token from your `/scim` integration config (raw — Okta's catalog template does **not** prepend `Bearer`; this app's `scim/auth.js` accepts both forms)
    - Unique identifier field for users: `userName`
    - **Import Groups: unchecked** (this app uses entitlements/roles, not groups)
    - **Test API Credentials** → must succeed → **Save**
-5. **To App** subtab → **Edit** → enable: Create Users, Update User Attributes, Deactivate Users → **Save**
-6. **Provisioning → Integration → Import Resources** → Okta probes `/Roles` and `/Entitlements`,
-   populates the IGA catalog, and discovers the User schema from `/Schemas`.
-7. **Identity Governance → Entitlement Bundles** — group entitlements into bundles (e.g. *Workshop Foreman Bundle* = `role: Workshop Foreman` + `access: approve_production_run` + `access: halt_production_line`), attach to access policies / access requests.
-8. **Assignments → Assign people** — assign bundles or individual entitlements; Okta SCIM-PATCHes the user to the app.
+5. **To App** subtab → enable: Create Users, Update User Attributes, Deactivate Users → **Save**
+6. **Provisioning → Integration → Import Resources** → Okta probes `/scim/v2/Roles` and `/scim/v2/Entitlements`,
+   populates the IGA catalog, and discovers the User schema from `/scim/v2/Schemas`.
+7. **Identity Governance → Entitlement Bundles** — group entitlements; attach to access policies / requests.
+8. **Assignments → Assign people** — Okta SCIM-PATCHes the user to the app; the dashboard at `/scim/dashboard` reads grants from the local DB.
 
-**On the app side:** The SAML callback prefers DB grants over SAML attributes when
-the user is SCIM-provisioned. Dashboard shows the same SAML assertion *plus* the
-DB-resolved grants, with a footer indicating provenance.
+**On the app side:** save the SCIM integration in `/admin/integrations`
+(or set up via `node server.js --setup scim`). The same SCIM bearer token
+you paste here is the one Okta's API integration uses.
 
 **Trade-offs:**
-- ✅ Catalog is **discoverable by Okta** — no manual mirroring; enable a profile in `/admin/profiles` and Okta picks it up on the next Import.
+- ✅ Catalog is **discoverable by Okta** — single source of truth.
 - ✅ Full IGA workflows (bundles, access requests, certifications, separation of duties).
-- ✅ Bidirectional: Okta pushes grants in real time over SCIM; app stores them in its DB.
-- ❌ More moving parts (SCIM token rotation, schema sync, app template choice).
-- ❌ Requires the app to be publicly reachable by Okta (see callout above).
+- ✅ Bidirectional: Okta pushes grants in real time; app stores them.
+- ❌ More moving parts (SCIM token, schema sync, app template choice).
+- ❌ Requires the app to be publicly reachable by Okta.
 
 ---
 
@@ -171,33 +163,24 @@ requirements. Plan for these before you start.
 
 | What you need | Why | Local-dev workaround |
 |---------------|-----|----------------------|
-| **Inbound 443 (HTTPS) reachable from the user's browser** | The SAML callback `POST /login/callback` lands here after Okta authenticates the user. | `http://localhost:1337` is fine — Okta only redirects the user's browser, not itself, in Path A. |
-| **Inbound 443 reachable from Okta's egress IPs** | **Path B only** — Okta's SCIM client calls your `/scim/v2/*` endpoints directly to probe the catalog and push grants. | Expose `localhost:1337` with a tunnel: `ngrok http 1337`, `cloudflared tunnel --url http://localhost:1337`, or Tailscale Funnel. |
-| **A valid TLS certificate** | Okta refuses to talk SCIM to a self-signed endpoint by default; SAML POSTs hit HTTPS only. | Tunnels above all hand you a free public HTTPS URL. For production, Let's Encrypt via certbot (the bundled `deploy/setup-ec2.sh` does this automatically). |
-| **A domain name** | Let's Encrypt validates against a hostname (DNS-01 or HTTP-01 challenge); Okta's SAML/SCIM configs are URL-based. | Tunnel services give you a free `*.ngrok-free.app` / `*.trycloudflare.com` host. |
+| **Inbound HTTPS reachable from the user's browser** | Each flow's SAML callback (`/byo/login/callback` or `/scim/login/callback`) lands here after Okta authenticates the user. | `http://localhost:1337` is fine for Path A — Okta only redirects the user's browser, not itself. |
+| **Inbound HTTPS reachable from Okta's egress IPs** | **Path B only** — Okta's SCIM client calls `/scim/v2/*` directly to probe the catalog and push grants. | Tunnel: `ngrok http 1337`, `cloudflared`, Tailscale Funnel. |
+| **A valid TLS certificate** | Okta refuses to talk SCIM to a self-signed endpoint by default; SAML POSTs hit HTTPS only. | Tunnels above all hand you a free public HTTPS URL. For production, Let's Encrypt via certbot — `deploy/setup-ec2.sh` automates this. |
+| **A domain name** | Let's Encrypt validates against a hostname; Okta's SAML/SCIM configs are URL-based. | Tunnel services give you a free `*.ngrok-free.app` / `*.trycloudflare.com` host. |
 
-### Can I run this on an IP without a domain?
-
-Technically yes, **but it's almost always more friction than getting a $10 domain.** The constraints:
-
-- **TLS without a domain** means either a self-signed cert (which Okta won't accept for SCIM and which browsers warn on for SAML) or a private CA whose root your Okta tenant is configured to trust (rare in practice).
-- **Okta's SAML app configuration** accepts IP-based URLs (`https://203.0.113.10/login/callback`) but the assertion-validation logic gets fussy with hostname mismatches.
-- **Path A** (SAML attribute statements only) is more forgiving — you can host on an IP with a self-signed cert if every user manually trusts it, since Okta doesn't talk back to the app.
-- **Path B** (SCIM provisioning) effectively requires a real domain + a real cert. Okta's SCIM client validates the cert chain.
-
-**Bottom line:** for any non-trivial demo, get a domain. The bundled EC2 deploy provisions a free Let's Encrypt cert; total cost is the domain registration (~$10/yr).
+A domain is strongly recommended for any non-trivial demo. The bundled
+EC2 deploy provisions a free Let's Encrypt cert; total cost is the
+domain registration (~$10/yr).
 
 ### Firewall / security-group rules
 
-For a production deploy on a typical cloud VM, the inbound rules you need are:
+For a production deploy on a typical cloud VM, open inbound:
 
-| Port | Protocol | Source | Purpose |
-|------|----------|--------|---------|
-| 22 | TCP | your IP | SSH (admin) |
-| 80 | TCP | `0.0.0.0/0` | HTTP — needed for Let's Encrypt's HTTP-01 challenge; nginx redirects to 443 in production |
-| 443 | TCP | `0.0.0.0/0` | HTTPS — public app + SAML callback + SCIM endpoint |
-
-Outbound is unrestricted by default on most VM platforms; the app only needs to reach Okta's SSO URL (no DB, no third-party APIs).
+| Port | Source | Purpose |
+|------|--------|---------|
+| 22   | your IP    | SSH (admin) |
+| 80   | `0.0.0.0/0`| HTTP — Let's Encrypt HTTP-01 challenge; nginx redirects to 443 in production |
+| 443  | `0.0.0.0/0`| HTTPS — public app + SAML callbacks (both flows) + SCIM endpoint |
 
 ---
 
@@ -208,36 +191,35 @@ git clone https://github.com/V-Bourneuf/CEM-app.git
 cd CEM-app
 npm install
 
-# Start the server — it'll prompt to create a SAML profile on first run
+# Set up the BYO profile (interactive)
+node server.js --setup byo
+
+# Set up the SCIM profile (interactive)
+node server.js --setup scim
+
+# Start the server (it loads both profiles automatically)
 npm start
 ```
 
-The first run drops you into an interactive **profile manager** that asks for:
-- Okta App Embed Link (the Okta SSO URL from your Sign-On tab)
-- SP Issuer / Audience URI (`http://localhost:1337/cemapp` is fine for local)
-- Path to the signing certificate (download from Okta Sign-On tab → SAML Setup Instructions)
-- (Optional) SCIM bearer token — generate with `openssl rand -hex 32`
-- (Optional) Admin auth: comma-separated emails for SAML admin allowlist *or* basic-auth user/pass
+Each `--setup <flow>` writes `profiles/<flow>/config.json` + `saml.pem`.
+You can also configure them later via the admin UI at `/admin/integrations`
+(no terminal access required after first sign-in).
 
-Profiles are saved under `./profiles/<name>/` (gitignored). To skip the
-prompt on subsequent runs:
+If you run `npm start` without configuring at least one flow, the
+landing page shows a "not configured" placeholder for any missing flow.
+The server still runs — `/admin` is reachable as long as you have at
+least one configured flow (so you can sign in) and one of the admin
+paths is satisfied.
 
-```bash
-node server.js --profile <name>
-```
-
-The app listens on **port 1337** by default; override with `PORT=…`.
-
-> For Path B (SCIM-based) testing locally, expose the server with a tunnel
-> (`ngrok http 1337` or `cloudflared tunnel --url http://localhost:1337`)
-> and use the public URL as your SCIM Base URL in Okta. Path A (SAML-only)
-> doesn't need a tunnel — Okta only ever talks to the user's browser.
+> For Path B testing locally, expose with a tunnel and use the public URL
+> as the Okta SCIM Base URL. Path A doesn't need a tunnel — Okta only
+> talks to the user's browser.
 
 ---
 
 ## Production deployment
 
-A complete deploy guide for AWS EC2 (Amazon Linux 2023 or Ubuntu) lives at
+Full guide for AWS EC2 (Amazon Linux 2023 or Ubuntu) at
 **[`deploy/README.md`](deploy/README.md)**. The flow:
 
 ```
@@ -247,7 +229,7 @@ laptop  →  rsync  →  /tmp/cemapp/  →  setup-ec2.sh
                                        ├── installs systemd unit
                                        └── provisions Let's Encrypt
                                        
-laptop  →  paste SAML profile config + cert  →  /opt/cemapp/profiles/production/
+laptop  →  paste BYO + SCIM SAML profiles  →  /opt/cemapp/profiles/{byo,scim}/
                                        ↓
                                    sudo systemctl start cemapp
 ```
@@ -259,51 +241,41 @@ Production runs at `https://<your-domain>/`, fronted by nginx with TLS.
 ## Security & access model
 
 ### SAML
-- IdP-initiated and SP-initiated flows both supported
-- New SAML callbacks logged to `saml-debug.log` (gitignored) for tenant troubleshooting
-- Helmet middleware sets standard security headers
-- Sessions are cookie-based (no Redis dependency for the demo)
+- Two passport-saml strategies (`saml-byo` and `saml-scim`), one per profile
+- Sessions track which flow authenticated (`req.session.authFlow`); cross-flow
+  navigation re-authenticates so each dashboard reflects the current flow's IdP
+- Every SAML callback appended to `saml-debug.log` (gitignored) for tenant troubleshooting
+- Helmet sets standard security headers; trust-proxy for nginx X-Forwarded-* support
 
 ### SCIM
 - Bearer auth on every `/scim/v2/*` endpoint (`scim/auth.js`)
 - Accepts both `Authorization: Bearer <token>` and raw `Authorization: <token>`
-  (Okta's catalog Governance-with-SCIM template sends the latter)
-- Token sourced from the active SAML profile's config or `SCIM_TOKEN` env var
+- Only the SCIM-flow Okta app uses these endpoints (the BYO flow has no SCIM)
 
-### `/admin` UI access
-Three paths, any one of which makes a SAML-authenticated user an admin
-(`admin/auth.js` — `getAdminVerdict()`):
+### `/admin` UI access — three paths to admin
+Authoritative source: `admin/auth.js` (`getAdminVerdict`).
 
-1. **Bootstrap allowlist** — email matches a value in `ADMIN_EMAILS`
-   (sourced from the active SAML profile's `adminEmails` field at startup).
-   Doesn't require a DB record. Intended for the operator's first/initial
-   admin and emergency access — set during installation.
-2. **SAML assertion-based** *(works with Path A)* — the SAML attributes
-   on this session contain a `role` or `access` value matching an
-   entitlement in the catalog flagged `grants_admin = 1` (e.g. the
-   `App Admin` role from the bundled Administration profile). No DB
-   record required — useful when the user isn't SCIM-provisioned.
-3. **SCIM grant-based** *(works with Path B)* — the user is provisioned
-   in the app's DB and holds at least one entitlement flagged
-   `grants_admin = 1`. The canonical, delegable path: assign **App Admin**
-   in Okta IGA → Okta SCIM-PATCHes the grant → user becomes admin.
+1. **Bootstrap allowlist** — email matches `ADMIN_EMAILS` (sourced from either
+   profile's `adminEmails` field at startup, unioned). Set during installation;
+   doesn't require a DB record. For first/initial admin and emergency access.
+2. **SAML assertion-based** *(Path A)* — the SAML attributes contain a `role` or
+   `access` value matching an entitlement flagged `grants_admin = 1`
+   (e.g. the `App Admin` role in the bundled Administration profile).
+3. **SCIM grant-based** *(Path B)* — user is provisioned in the DB and holds a
+   `grants_admin = 1` entitlement. Assign **App Admin** in Okta IGA → SCIM PATCH → admin.
 
-The legacy `ADMIN_USER` / `ADMIN_PASS` HTTP-basic auth is kept as a
-fallback only when no admin path is configured at all (no allowlist
-configured *and* the user has no SAML/DB admin entitlement) — gives an
-operator a way in before Okta-side admin assignments are wired up.
+**No HTTP basic-auth fallback.** SAML-only — every admin came in through Okta.
 
-The login page itself is intentionally minimal — a single "Sign in with
-Okta" button. The dashboard renders an "Admin →" chip in the header
-once the verdict above resolves to admin; non-admins never see it.
+The login pages are intentionally minimal — a single "Sign in with Okta" button
+per flow. The dashboard renders an "Admin →" chip in the header once the verdict
+above resolves to admin; non-admins never see it.
 
 ---
 
 ## Entitlement profiles
 
-The catalog is organized into profiles, each tailored to a different business
-function. The bundled dataset uses a kitefoil designer/retailer scenario for
-illustration:
+The catalog is organized into profiles. The bundled dataset uses a kitefoil
+designer/retailer scenario for illustration:
 
 | Profile                        | Theme                                                             | Roles | Access |
 |--------------------------------|-------------------------------------------------------------------|-------|--------|
@@ -316,13 +288,9 @@ illustration:
 Admins toggle profiles in `/admin/profiles`. **Enabling a profile inserts its
 entitlements into the catalog table; disabling deletes them** (the FK on
 `user_entitlements` cascades, revoking any user grants tied to those
-entitlements). Because there's no separate "active" flag — disabled profiles
-have zero rows in the table — `/scim/v2/Roles` and `/scim/v2/Entitlements`
-naturally only ever expose entitlements from currently-enabled profiles.
-
-You can also add **custom entitlements** inside any enabled profile via the
-admin UI's inline form (the new entitlement gets stamped with that profile's
-id, so it'll be swept too if the profile is later disabled).
+entitlements). Disabled profiles have zero rows in the table — so
+`/scim/v2/Roles` and `/scim/v2/Entitlements` only ever expose entitlements
+from currently-enabled profiles.
 
 ---
 
@@ -330,28 +298,27 @@ id, so it'll be swept too if the profile is later disabled).
 
 ```
 .
-├── server.js               # Express app, SAML callback, profile loader
-├── profileManager.js       # Interactive CLI for SAML profile create/select
+├── server.js               # Express app — loads both profiles, mounts /byo + /scim, /admin, /scim/v2
+├── profileManager.js       # Load/save SAML profiles + interactive `--setup` CLI
 ├── db/
-│   ├── schema.sql          # SQLite DDL
-│   ├── index.js            # Connection, idempotent migrations, Entitlements/Users/Grants/Profiles APIs
-│   └── profiles.js         # Static profile templates (demo bundles)
+│   ├── schema.sql          # SQLite DDL (entitlements with profile + grants_admin)
+│   ├── index.js            # Connection, migrations, Entitlements/Users/Grants/Profiles APIs
+│   └── profiles.js         # Static catalog templates (demo bundles)
 ├── scim/
-│   ├── router.js           # SCIM 2.0 mount: /Users /Groups /Roles /Entitlements /<discovery>
+│   ├── router.js           # /Users /Groups /Roles /Entitlements + service discovery
 │   ├── auth.js             # Bearer-token middleware, SCIM error helper
-│   ├── users.js            # Full /Users CRUD, PATCH ops mapping role+entitlement arrays
-│   ├── groups.js           # /Groups stub (empty list — Okta probes this during sync)
-│   ├── roles.js            # /Roles (type='role' subset of catalog)
-│   ├── entitlements.js     # /Entitlements (type='access' subset of catalog)
+│   ├── users.js            # Full /Users CRUD; PATCH ops map roles+entitlements arrays into DB
+│   ├── groups.js           # /Groups stub (Okta probes during sync)
+│   ├── roles.js            # /Roles (type='role' subset)
+│   ├── entitlements.js     # /Entitlements (type='access' subset)
 │   └── schemas.js          # /ServiceProviderConfig /ResourceTypes /Schemas
 ├── admin/
-│   ├── router.js           # Catalog/profile/user routes + denied-page renderer
+│   ├── router.js           # Catalog/profile/user/integrations routes + denied-page renderer
 │   ├── auth.js             # getAdminVerdict() — single source of truth for admin authz
 │   └── views/              # EJS templates for admin UI
 ├── public/
-│   ├── views/              # Public app templates: login, dashboard
-│   ├── css/                # styles.css (public), admin.css (admin)
-│   └── js/                 # init.js (legacy, dashboard now renders server-side)
+│   ├── views/              # landing.ejs (flow picker), login.ejs (themed), dashboard.ejs (themed), placeholder.ejs
+│   └── css/                # styles.css (Okta palette + Playfair Display + theme classes), admin.css
 └── deploy/
     ├── README.md           # EC2 deploy guide
     ├── setup-ec2.sh        # One-shot installer

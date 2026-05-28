@@ -3,26 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>CEM App — Sign in</title>
+    <title>CEM App — Sign in (<%= flowKey.toUpperCase() %>)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body>
+<body class="theme-<%= theme %>">
     <div class="login-shell">
         <div class="login-card">
-            <div class="login-mark" aria-hidden="true">CEM</div>
+            <div class="login-mark" aria-hidden="true"><%= flowKey.toUpperCase() %></div>
+            <span class="login-flow-label">
+                <%= flowKey === 'byo' ? 'Path A · BYO Entitlements' : 'Path B · Governance with SCIM 2.0' %>
+            </span>
             <h1>Sign in to CEM App</h1>
-            <p>Authenticate with Okta to view your roles and access permissions.</p>
-            <a href="/auth/saml" class="btn-okta">
+            <p>
+                <% if (flowKey === 'byo') { %>
+                    Authenticates against the <strong>BYO Okta app</strong>. Roles and access flow through the SAML assertion.
+                <% } else { %>
+                    Authenticates against the <strong>SCIM Okta app</strong>. Grants are SCIM-provisioned and read from the local DB.
+                <% } %>
+            </p>
+            <a href="/<%= flowKey %>/auth/saml" class="btn-okta">
                 Sign in with Okta
                 <svg class="btn-okta__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M5.5 3l5 5-5 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </a>
             <p class="login-footnote">
-                Identity governed by <code><%= host %></code>
+                Hosted at <code><%= host %></code> · <a href="/">switch flow</a>
             </p>
         </div>
     </div>
