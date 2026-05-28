@@ -164,6 +164,43 @@ DB-resolved grants, with a footer indicating provenance.
 
 ---
 
+## Infrastructure prerequisites
+
+A custom Okta-integrated app has a couple of unavoidable networking
+requirements. Plan for these before you start.
+
+| What you need | Why | Local-dev workaround |
+|---------------|-----|----------------------|
+| **Inbound 443 (HTTPS) reachable from the user's browser** | The SAML callback `POST /login/callback` lands here after Okta authenticates the user. | `http://localhost:1337` is fine — Okta only redirects the user's browser, not itself, in Path A. |
+| **Inbound 443 reachable from Okta's egress IPs** | **Path B only** — Okta's SCIM client calls your `/scim/v2/*` endpoints directly to probe the catalog and push grants. | Expose `localhost:1337` with a tunnel: `ngrok http 1337`, `cloudflared tunnel --url http://localhost:1337`, or Tailscale Funnel. |
+| **A valid TLS certificate** | Okta refuses to talk SCIM to a self-signed endpoint by default; SAML POSTs hit HTTPS only. | Tunnels above all hand you a free public HTTPS URL. For production, Let's Encrypt via certbot (the bundled `deploy/setup-ec2.sh` does this automatically). |
+| **A domain name** | Let's Encrypt validates against a hostname (DNS-01 or HTTP-01 challenge); Okta's SAML/SCIM configs are URL-based. | Tunnel services give you a free `*.ngrok-free.app` / `*.trycloudflare.com` host. |
+
+### Can I run this on an IP without a domain?
+
+Technically yes, **but it's almost always more friction than getting a $10 domain.** The constraints:
+
+- **TLS without a domain** means either a self-signed cert (which Okta won't accept for SCIM and which browsers warn on for SAML) or a private CA whose root your Okta tenant is configured to trust (rare in practice).
+- **Okta's SAML app configuration** accepts IP-based URLs (`https://203.0.113.10/login/callback`) but the assertion-validation logic gets fussy with hostname mismatches.
+- **Path A** (SAML attribute statements only) is more forgiving — you can host on an IP with a self-signed cert if every user manually trusts it, since Okta doesn't talk back to the app.
+- **Path B** (SCIM provisioning) effectively requires a real domain + a real cert. Okta's SCIM client validates the cert chain.
+
+**Bottom line:** for any non-trivial demo, get a domain. The bundled EC2 deploy provisions a free Let's Encrypt cert; total cost is the domain registration (~$10/yr).
+
+### Firewall / security-group rules
+
+For a production deploy on a typical cloud VM, the inbound rules you need are:
+
+| Port | Protocol | Source | Purpose |
+|------|----------|--------|---------|
+| 22 | TCP | your IP | SSH (admin) |
+| 80 | TCP | `0.0.0.0/0` | HTTP — needed for Let's Encrypt's HTTP-01 challenge; nginx redirects to 443 in production |
+| 443 | TCP | `0.0.0.0/0` | HTTPS — public app + SAML callback + SCIM endpoint |
+
+Outbound is unrestricted by default on most VM platforms; the app only needs to reach Okta's SSO URL (no DB, no third-party APIs).
+
+---
+
 ## Quick start (local dev)
 
 ```bash
