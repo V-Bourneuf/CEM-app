@@ -102,40 +102,65 @@ router.get('/dashboard', (req, res) => {
     });
 });
 
-// ---------- entitlements (nested under /admin/profiles) ----------
+// ---------- entitlements: flat catalog list + edit form (does not gate on profile activation) ----------
 
-router.get('/entitlements', (req, res) => res.redirect('/admin/profiles'));
+router.get('/entitlements', (req, res) => {
+    const all = Entitlements.list();
+    renderAdmin(res, 'entitlement-list.ejs', {
+        page:           'entitlements',
+        entitlements:   all,
+        flash:          req.query.flash || null,
+        error:          req.query.error || null,
+    });
+});
 
 router.get('/entitlements/:id/edit', (req, res) => {
     const editing = Entitlements.findById(req.params.id);
-    if (!editing) return res.redirect('/admin/profiles?error=' + encodeURIComponent('Entitlement not found'));
+    if (!editing) return res.redirect('/admin/entitlements?error=' + encodeURIComponent('Entitlement not found'));
+
+    // All defined profile keys (from db/profiles.js) — including currently-disabled ones,
+    // because re-assigning an entitlement should not require its destination profile to be
+    // enabled first.
+    const profileKeys = Profiles.list().map(p => ({ id: p.id, name: p.name, active: p.active }));
+    const columnHints = Entitlements.distinctColumnHints();
+
     renderAdmin(res, 'entitlements.ejs', {
-        page: 'entitlements',
+        page:         'entitlements',
         editing,
-        flash: null,
-        error: null,
+        profileKeys,
+        columnHints,
+        returnTo:     req.query.from === 'profiles' ? '/admin/profiles' : '/admin/entitlements',
+        flash:        null,
+        error:        req.query.error || null,
     });
 });
 
 router.post('/entitlements/:id', (req, res) => {
-    const { type, displayName, value, columnHint, description, grantsAdmin } = req.body;
+    const { type, displayName, value, columnHint, description, profile, grantsAdmin } = req.body;
+    const returnTo = req.body.returnTo === '/admin/profiles' ? '/admin/profiles' : '/admin/entitlements';
     try {
         const updated = Entitlements.update(req.params.id, {
-            type, displayName, value, columnHint, description,
+            type,
+            displayName,
+            value,
+            columnHint,
+            description,
+            profile: profile && profile.length > 0 ? profile : null,
             grantsAdmin: grantsAdmin === 'on' || grantsAdmin === '1' || grantsAdmin === 'true',
         });
-        if (!updated) return res.redirect('/admin/profiles?error=' + encodeURIComponent('Not found'));
-        res.redirect('/admin/profiles?flash=' + encodeURIComponent('Saved: ' + displayName));
+        if (!updated) return res.redirect(`${returnTo}?error=` + encodeURIComponent('Not found'));
+        res.redirect(`${returnTo}?flash=` + encodeURIComponent('Saved: ' + displayName));
     } catch (e) {
-        res.redirect('/admin/profiles?error=' + encodeURIComponent(e.message));
+        res.redirect(`${returnTo}?error=` + encodeURIComponent(e.message));
     }
 });
 
 router.post('/entitlements/:id/delete', (req, res) => {
     const e = Entitlements.findById(req.params.id);
-    if (!e) return res.redirect('/admin/profiles?error=' + encodeURIComponent('Not found'));
+    const returnTo = req.body.returnTo === '/admin/profiles' ? '/admin/profiles' : '/admin/entitlements';
+    if (!e) return res.redirect(`${returnTo}?error=` + encodeURIComponent('Not found'));
     Entitlements.delete(req.params.id);
-    res.redirect('/admin/profiles?flash=' + encodeURIComponent('Deleted: ' + e.display_name));
+    res.redirect(`${returnTo}?flash=` + encodeURIComponent('Deleted: ' + e.display_name));
 });
 
 // ---------- users ----------

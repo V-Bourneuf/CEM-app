@@ -1,0 +1,62 @@
+<%- include('_header') %>
+
+<h2>Entitlement catalog — flat list</h2>
+<p class="muted">
+    Every entitlement currently in the catalog table, regardless of which profile it
+    belongs to. Use this view when you want to edit an entitlement without going through
+    the profile UI. Editing here does <strong>not</strong> require the entitlement's
+    profile to be enabled. <a href="/admin/profiles">View grouped by profile →</a>
+</p>
+
+<% if (flash) { %><div class="flash success"><%= flash %></div><% } %>
+<% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Display name</th>
+            <th>Value</th>
+            <th>Profile</th>
+            <th>Column</th>
+            <th>Admin?</th>
+            <th>ID</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    <% entitlements.forEach(function(e) { %>
+        <tr>
+            <td><span class="badge type-<%= e.type %>"><%= e.type %></span></td>
+            <td><%= e.display_name %></td>
+            <td><code><%= e.value %></code></td>
+            <td><code class="muted"><%= e.profile || '—' %></code></td>
+            <td><%= e.column_hint || '—' %></td>
+            <td>
+                <% if (e.grants_admin) { %>
+                    <span class="badge type-role" style="background:#fce7f3;color:#9d174d">grants admin</span>
+                <% } else { %>
+                    <span class="muted">—</span>
+                <% } %>
+            </td>
+            <td><code class="muted" style="font-size:11px"><%= e.id %></code></td>
+            <td class="actions">
+                <a class="btn-link" href="/admin/entitlements/<%= encodeURIComponent(e.id) %>/edit">edit</a>
+                <form method="post" action="/admin/entitlements/<%= encodeURIComponent(e.id) %>/delete"
+                      class="inline" style="display:inline;margin:0"
+                      onsubmit="return confirm('Delete &quot;<%= e.display_name %>&quot;? Removes any user grants on it.');">
+                    <input type="hidden" name="returnTo" value="/admin/entitlements">
+                    <button type="submit" class="btn-link btn-link--danger">delete</button>
+                </form>
+            </td>
+        </tr>
+    <% }) %>
+    </tbody>
+</table>
+
+<p class="muted" style="margin-top:24px;font-size:12px">
+    <strong><%= entitlements.length %></strong> entitlement<%= entitlements.length === 1 ? '' : 's' %> in the catalog.
+    To add a new one, go to <a href="/admin/profiles">profiles view</a> and use the per-profile add form.
+</p>
+
+<%- include('_footer') %>

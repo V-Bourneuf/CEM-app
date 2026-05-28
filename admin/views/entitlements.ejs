@@ -2,14 +2,16 @@
 
 <h2>Edit entitlement</h2>
 <p class="muted">
-    Editing <code><%= editing.id %></code> — currently in the <strong><%= editing.profile || '(no profile)' %></strong> profile.
-    Changes are immediately reflected in the SCIM <code>/Roles</code> and <code>/Entitlements</code> endpoints. Okta will pick them up on its next sync.
+    Editing <code><%= editing.id %></code>. Changes are immediately reflected in the SCIM <code>/Roles</code>
+    and <code>/Entitlements</code> endpoints. Okta will pick them up on its next sync.
 </p>
 
 <% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
 
 <section class="form-card">
     <form method="post" action="/admin/entitlements/<%= editing.id %>">
+        <input type="hidden" name="returnTo" value="<%= returnTo %>">
+
         <div class="form-row">
             <label>ID (slug, immutable)
                 <input type="text" name="id" value="<%= editing.id %>" readonly>
@@ -22,6 +24,7 @@
                 </select>
             </label>
         </div>
+
         <div class="form-row">
             <label>Display name
                 <input type="text" name="displayName" required value="<%= editing.display_name %>">
@@ -30,23 +33,51 @@
                 <input type="text" name="value" required value="<%= editing.value %>">
             </label>
         </div>
+
         <div class="form-row">
-            <label>Column hint (UI grouping, optional)
-                <input type="text" name="columnHint" value="<%= editing.column_hint || '' %>" placeholder="e.g. devOps">
+            <label>Profile
+                <select name="profile">
+                    <option value="" <%= !editing.profile ? 'selected' : '' %>>(none)</option>
+                    <% profileKeys.forEach(p => { %>
+                        <option value="<%= p.id %>" <%= editing.profile === p.id ? 'selected' : '' %>>
+                            <%= p.name %><%= p.active ? '' : ' (currently disabled)' %>
+                        </option>
+                    <% }) %>
+                </select>
             </label>
-            <label>Description
+            <label>Column hint (UI grouping, optional)
+                <input type="text" name="columnHint" list="column-hints"
+                       value="<%= editing.column_hint || '' %>" placeholder="e.g. devOps">
+                <datalist id="column-hints">
+                    <% columnHints.forEach(h => { %>
+                        <option value="<%= h %>">
+                    <% }) %>
+                </datalist>
+            </label>
+        </div>
+
+        <div class="form-row">
+            <label style="width:100%">Description
                 <input type="text" name="description" value="<%= editing.description || '' %>">
             </label>
         </div>
+
         <div class="form-row">
             <label class="ent-add-checkbox">
                 <input type="checkbox" name="grantsAdmin" <%= editing.grants_admin ? 'checked' : '' %>>
-                Grants /admin access — when granted to a user, they can access the admin UI
+                Grants /admin access — when this entitlement is granted to a user, they can access the admin UI
             </label>
         </div>
+
+        <p class="muted" style="font-size:12px;margin:0 0 16px">
+            <strong>Note:</strong> moving an entitlement to a currently-disabled profile is allowed. Disabled-profile entitlements
+            still appear in <code>/scim/v2/*</code> as soon as they exist in the catalog table — the "active" state is just
+            "has at least one row in the table".
+        </p>
+
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Save</button>
-            <a href="/admin/profiles" class="btn">Cancel</a>
+            <a href="<%= returnTo %>" class="btn">Cancel</a>
         </div>
     </form>
 </section>

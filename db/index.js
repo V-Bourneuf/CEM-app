@@ -139,7 +139,7 @@ const Entitlements = {
         `).run(id, type, displayName, value, columnHint || null, description || null, profile || null, grantsAdmin ? 1 : 0);
         return this.findById(id);
     },
-    update(id, { displayName, value, columnHint, description, type, grantsAdmin }) {
+    update(id, { displayName, value, columnHint, description, type, profile, grantsAdmin }) {
         db.prepare(`
             UPDATE entitlements
                SET display_name  = COALESCE(?, display_name),
@@ -147,6 +147,7 @@ const Entitlements = {
                    column_hint   = COALESCE(?, column_hint),
                    description   = COALESCE(?, description),
                    type          = COALESCE(?, type),
+                   profile       = COALESCE(?, profile),
                    grants_admin  = COALESCE(?, grants_admin),
                    updated_at    = datetime('now')
              WHERE id = ?
@@ -156,10 +157,16 @@ const Entitlements = {
             columnHint ?? null,
             description ?? null,
             type ?? null,
+            profile ?? null,
             grantsAdmin === undefined ? null : (grantsAdmin ? 1 : 0),
             id
         );
         return this.findById(id);
+    },
+    // Distinct column_hint values currently in the catalog — used for the
+    // edit form's autocomplete datalist.
+    distinctColumnHints() {
+        return db.prepare("SELECT DISTINCT column_hint AS h FROM entitlements WHERE column_hint IS NOT NULL AND column_hint != '' ORDER BY column_hint").all().map(r => r.h);
     },
     delete(id) {
         return db.prepare('DELETE FROM entitlements WHERE id = ?').run(id).changes > 0;

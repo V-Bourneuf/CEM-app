@@ -3,6 +3,7 @@
 <h2>Entitlement catalog</h2>
 <p class="muted">
     The catalog is organized into <strong>profiles</strong> — curated bundles of roles + access for each business function.
+    Or <a href="/admin/entitlements">view as a flat catalog list →</a>
     Enable a profile to add its entitlements to the live catalog. <strong>Only enabled profiles' entitlements are
     discoverable by Okta</strong> through the SCIM <code>/Roles</code> and <code>/Entitlements</code> endpoints.
     Once a profile is enabled, you can edit, delete, or add custom entitlements to it.
@@ -48,10 +49,11 @@
                                 <% if (e.grants_admin) { %><span class="ent-tag ent-tag--admin" title="Granting this gives the user /admin access">admin</span><% } %>
                                 <code class="ent-value"><%= e.value %></code>
                                 <span class="ent-actions">
-                                    <a href="/admin/entitlements/<%= encodeURIComponent(e.id) %>/edit" class="btn-link">Edit</a>
+                                    <a href="/admin/entitlements/<%= encodeURIComponent(e.id) %>/edit?from=profiles" class="btn-link">Edit</a>
                                     <form method="POST" action="/admin/entitlements/<%= encodeURIComponent(e.id) %>/delete"
                                           style="display:inline;margin:0"
                                           onsubmit="return confirm('Delete &quot;<%= e.display_name %>&quot;? Removes any user grants on it.');">
+                                        <input type="hidden" name="returnTo" value="/admin/profiles">
                                         <button type="submit" class="btn-link btn-link--danger">Delete</button>
                                     </form>
                                 </span>

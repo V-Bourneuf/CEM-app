@@ -54,11 +54,45 @@
         </div>
         <div class="form-row">
             <label style="width:100%">SAML signing certificate (PEM)
-                <textarea name="cert" required rows="14"
+                <div style="display:flex;gap:8px;align-items:center;margin:6px 0">
+                    <input type="file" id="certFileInput" accept=".pem,.cert,.crt,.cer,.txt"
+                           style="font-size:12px">
+                    <span class="muted" style="font-size:12px">— or paste the PEM block below</span>
+                    <span id="certFileStatus" class="muted" style="font-size:12px;margin-left:auto"></span>
+                </div>
+                <textarea name="cert" id="certTextarea" required rows="14"
                     style="width:100%;font-family:'JetBrains Mono',Menlo,monospace;font-size:11px;padding:8px;border:1px solid #d1d5db;border-radius:4px"
                     placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"><%= profile ? profile.cert : '' %></textarea>
             </label>
         </div>
+        <script>
+            (function() {
+                const fileInput   = document.getElementById('certFileInput');
+                const textarea    = document.getElementById('certTextarea');
+                const statusLabel = document.getElementById('certFileStatus');
+                fileInput.addEventListener('change', function() {
+                    const f = fileInput.files && fileInput.files[0];
+                    if (!f) return;
+                    const r = new FileReader();
+                    r.onload = function() {
+                        const content = String(r.result || '').trim();
+                        if (!content.includes('-----BEGIN CERTIFICATE-----')) {
+                            statusLabel.textContent = '⚠ ' + f.name + ' does not look like a PEM cert';
+                            statusLabel.style.color = '#b91c1c';
+                            return;
+                        }
+                        textarea.value = content;
+                        statusLabel.textContent = '✓ loaded ' + f.name + ' (' + content.length + ' bytes)';
+                        statusLabel.style.color = '#2e8b57';
+                    };
+                    r.onerror = function() {
+                        statusLabel.textContent = '✗ failed to read ' + f.name;
+                        statusLabel.style.color = '#b91c1c';
+                    };
+                    r.readAsText(f);
+                });
+            })();
+        </script>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Save integration</button>
             <a href="/admin/integrations" class="btn">Cancel</a>
