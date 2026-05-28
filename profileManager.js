@@ -1,16 +1,31 @@
 /**
- * Interactive profile manager for the CEM App SAML configuration.
+ * Profile manager — load + save SAML profiles for each flow.
  *
- * Profiles are stored under ./profiles/<name>/ as:
- *   config.json   { entryPoint, issuer, skipAttributes, scimToken }
- *   saml.pem      (Okta signing certificate, PEM-encoded)
+ * The CEM App runs two parallel demos in one server:
+ *   • profiles/byo/   → BYO entitlements via SAML attribute statements (path A)
+ *   • profiles/scim/  → Governance with SCIM 2.0 (path B)
+ *
+ * Each profile is a directory under ./profiles/<name>/ containing:
+ *   config.json   { entryPoint, issuer, skipAttributes, scimToken, adminEmails }
+ *   saml.pem      Okta signing certificate (PEM-encoded)
+ *
+ * Profiles can be created either:
+ *   • from the command line: `node server.js --setup byo`   (interactive)
+ *   • from the admin UI:     /admin/integrations             (web form)
+ *
+ * Whatever creates them, server.js loads them at startup and mounts the
+ * matching flow. A missing profile is non-fatal — the server runs with
+ * just the configured flows and shows a "not configured" placeholder for
+ * the others.
  *
  * Public API:
- *   selectOrCreateProfile()   -> Promise<profile>   interactive top-level flow
- *   loadProfile(name)         -> profile            non-interactive load by name
- *   listProfiles()            -> string[]           names of saved profiles
+ *   loadProfile(name)               -> profile | null    (null if dir missing)
+ *   saveProfile(name, fields, cert) -> dir               (writes config.json + saml.pem)
+ *   listProfiles()                  -> string[]          (names of complete profiles)
+ *   setupProfileInteractive(name)   -> Promise<profile>  (CLI prompt flow)
  *
- * A "profile" object is { name, entryPoint, issuer, skipAttributes, scimToken, cert }.
+ * A "profile" object is { name, entryPoint, issuer, skipAttributes,
+ *                         scimToken, adminEmails, cert }.
  */
 
 const fs = require('fs');
@@ -19,6 +34,8 @@ const path = require('path');
 const readline = require('readline');
 
 const PROFILES_DIR = path.join(__dirname, 'profiles');
+
+const KNOWN_FLOWS = ['byo', 'scim'];
 
 // ---------- disk I/O ----------
 
@@ -42,26 +59,25 @@ function loadProfile(name) {
     const dir = path.join(PROFILES_DIR, name);
     const configPath = path.join(dir, 'config.json');
     const certPath   = path.join(dir, 'saml.pem');
-    if (!fs.existsSync(configPath)) throw new Error(`Profile '${name}' is missing config.json`);
-    if (!fs.existsSync(certPath))   throw new Error(`Profile '${name}' is missing saml.pem`);
+    if (!fs.existsSync(configPath) || !fs.existsSync(certPath)) return null;
 
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const cert   = fs.readFileSync(certPath, 'utf8');
     return { name, ...config, cert };
 }
 
-function saveProfile(name, { entryPoint, issuer, skipAttributes, scimToken, adminUser, adminPass, adminEmails, cert }) {
+function saveProfile(name, { entryPoint, issuer, skipAttributes, scimToken, adminEmails, cert }) {
     const dir = path.join(PROFILES_DIR, name);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
         path.join(dir, 'config.json'),
-        JSON.stringify({ entryPoint, issuer, skipAttributes, scimToken, adminUser, adminPass, adminEmails }, null, 2)
+        JSON.stringify({ entryPoint, issuer, skipAttributes, scimToken, adminEmails }, null, 2)
     );
     fs.writeFileSync(path.join(dir, 'saml.pem'), cert);
     return dir;
 }
 
-// ---------- prompt helpers ----------
+// ---------- interactive setup (CLI only — used by `node server.js --setup <name>`) ----------
 
 function makePrompt() {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -91,14 +107,7 @@ function expandHome(p) {
     return p;
 }
 
-// ---------- field validators ----------
-
 const validators = {
-    name(v) {
-        if (!v) return 'Profile name is required';
-        if (!/^[A-Za-z0-9_-]+$/.test(v)) return 'Use letters, digits, dashes, underscores only';
-        return null;
-    },
     httpsUrl(v) {
         if (!v) return 'Required';
         if (!/^https:\/\/\S+$/.test(v)) return 'Must be an https:// URL';
@@ -120,84 +129,59 @@ const validators = {
     },
 };
 
-// ---------- interactive create flow ----------
-
-async function createProfile(prompt) {
-    console.log('\n=== Create a new profile ===\n');
-
-    const name = await prompt.askValidated('Profile name', validators.name);
-
-    if (fs.existsSync(path.join(PROFILES_DIR, name))) {
-        const ans = await prompt.ask(`Profile '${name}' already exists. Overwrite? (y/N)`, 'N');
-        if (!/^y/i.test(ans)) {
-            console.log('Cancelled.');
-            return null;
-        }
+async function setupProfileInteractive(name) {
+    if (!KNOWN_FLOWS.includes(name)) {
+        throw new Error(`Unknown profile name '${name}'. Use one of: ${KNOWN_FLOWS.join(', ')}`);
     }
 
-    const entryPoint     = await prompt.askValidated('Okta Entry Point (App Embed Link)', validators.httpsUrl);
-    const issuer         = await prompt.askValidated('SP Issuer / Audience URI', validators.issuer, 'http://localhost:1337/cemapp');
-    const skipAttributes = await prompt.ask('Skip SAML attributes (comma-separated)', 'firstName,lastName,email');
-    const certPath       = await prompt.askValidated('Path to signing certificate (.cert/.pem)', validators.certPath);
-    const scimToken      = await prompt.ask('SCIM bearer token (optional, blank to skip)', '');
-    const adminEmails    = await prompt.ask('Admin emails — Okta SAML allowlist for /admin (comma-separated, blank for HTTP basic auth)', '');
-    let adminUser = '', adminPass = '';
-    if (!adminEmails) {
-        adminUser = await prompt.ask('Admin UI username (HTTP basic auth, blank to disable /admin)', '');
-        adminPass = adminUser ? await prompt.ask('Admin UI password', '') : '';
-    }
-
-    const cert = fs.readFileSync(expandHome(certPath), 'utf8');
-    const dir  = saveProfile(name, { entryPoint, issuer, skipAttributes, scimToken, adminUser, adminPass, adminEmails, cert });
-    console.log(`\n✓ Saved profile '${name}' to ${dir}\n`);
-    return name;
-}
-
-// ---------- top-level: pick existing or create new ----------
-
-async function selectOrCreateProfile() {
     ensureProfilesDir();
-    const profiles = listProfiles();
     const prompt = makePrompt();
 
     try {
-        let selected;
-
-        if (profiles.length === 0) {
-            console.log('\nNo SAML profiles found in ./profiles/. Let\'s set one up.');
-            selected = await createProfile(prompt);
-            if (!selected) {
-                console.log('Aborting startup.');
-                process.exit(0);
-            }
-        } else {
-            console.log('\nSAML profiles available:');
-            profiles.forEach((p, i) => console.log(`  ${i + 1}) ${p}`));
-            const newIdx = profiles.length + 1;
-            console.log(`  ${newIdx}) [+] Create new profile`);
-
-            const choice = await prompt.askValidated(
-                `Select profile [1-${newIdx}]`,
-                v => {
-                    const n = parseInt(v, 10);
-                    if (isNaN(n) || n < 1 || n > newIdx) return `Enter a number between 1 and ${newIdx}`;
-                    return null;
-                },
-                '1'
-            );
-            const n = parseInt(choice, 10);
-            if (n === newIdx) {
-                selected = await createProfile(prompt);
-                if (!selected) process.exit(0);
-            } else {
-                selected = profiles[n - 1];
+        console.log(`\n=== Configure the '${name}' SAML profile ===\n`);
+        if (fs.existsSync(path.join(PROFILES_DIR, name))) {
+            const ans = await prompt.ask(`Profile '${name}' already exists. Overwrite? (y/N)`, 'N');
+            if (!/^y/i.test(ans)) {
+                console.log('Cancelled.');
+                return null;
             }
         }
 
-        return loadProfile(selected);
+        const flowDescription = name === 'byo'
+            ? "BYO entitlements: SAML attribute-statement-based (no SCIM)"
+            : "Governance with SCIM 2.0: SAML SSO + SCIM provisioning";
+        console.log(`Flow: ${flowDescription}\n`);
+
+        const entryPoint     = await prompt.askValidated('Okta SSO URL (App Embed Link)', validators.httpsUrl);
+        const issuer         = await prompt.askValidated('SP Issuer / Audience URI',
+                                                          validators.issuer,
+                                                          `http://localhost:1337/${name}`);
+        const skipAttributes = await prompt.ask('Skip SAML attributes (comma-separated)',
+                                                 'firstName,lastName,email');
+        const certPath       = await prompt.askValidated('Path to signing certificate (.cert/.pem)', validators.certPath);
+
+        let scimToken = '';
+        if (name === 'scim') {
+            scimToken = await prompt.ask('SCIM bearer token (generate with `openssl rand -hex 32`)', '');
+        }
+
+        const adminEmails = await prompt.ask(
+            'Admin emails — bootstrap allowlist for /admin (comma-separated, blank for entitlement-only)',
+            '');
+
+        const cert = fs.readFileSync(expandHome(certPath), 'utf8');
+        const dir  = saveProfile(name, { entryPoint, issuer, skipAttributes, scimToken, adminEmails, cert });
+        console.log(`\n✓ Saved profile '${name}' to ${dir}\n`);
+        return loadProfile(name);
     } finally {
         prompt.close();
     }
 }
 
-module.exports = { selectOrCreateProfile, loadProfile, listProfiles };
+module.exports = {
+    KNOWN_FLOWS,
+    loadProfile,
+    saveProfile,
+    listProfiles,
+    setupProfileInteractive,
+};

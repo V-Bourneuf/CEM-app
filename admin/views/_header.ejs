@@ -10,9 +10,10 @@
     <div class="admin-header-inner">
         <h1>CEM App Admin</h1>
         <nav>
-            <a href="/admin/dashboard"    class="<%= page === 'dashboard'    ? 'active' : '' %>">Dashboard</a>
-            <a href="/admin/profiles"     class="<%= ['profiles','entitlements'].includes(page) ? 'active' : '' %>">Catalog</a>
-            <a href="/admin/users"        class="<%= page === 'users'        ? 'active' : '' %>">Users</a>
+            <a href="/admin/dashboard"     class="<%= page === 'dashboard'     ? 'active' : '' %>">Dashboard</a>
+            <a href="/admin/integrations"  class="<%= page === 'integrations'  ? 'active' : '' %>">Integrations</a>
+            <a href="/admin/profiles"      class="<%= ['profiles','entitlements'].includes(page) ? 'active' : '' %>">Catalog</a>
+            <a href="/admin/users"         class="<%= page === 'users'         ? 'active' : '' %>">Users</a>
             <a href="/" class="external">↗ Public app</a>
         </nav>
     </div>

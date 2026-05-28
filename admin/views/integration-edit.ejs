@@ -1,0 +1,69 @@
+<%- include('_header') %>
+
+<h2><%= profile ? 'Edit' : 'Configure' %> the <code><%= flow.toUpperCase() %></code> integration</h2>
+<p class="muted">
+    <% if (flow === 'byo') { %>
+        <strong>Path A.</strong> Plain SAML 2.0 app on Okta. Define entitlement attributes (access, role)
+        in Okta IGA's Entitlement Management UI, then send them via the SAML attribute statements
+        <code>appuser.access</code> and <code>appuser.role</code>. No SCIM token required.
+    <% } else { %>
+        <strong>Path B.</strong> (Header Auth) Governance with SCIM 2.0 app on Okta. Catalog is
+        discovered from <code>/scim/v2/Roles</code> + <code>/scim/v2/Entitlements</code>; user
+        grants are SCIM-PATCHed to <code>/scim/v2/Users</code>.
+    <% } %>
+</p>
+
+<% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
+
+<section class="form-card">
+    <form method="post" action="/admin/integrations/<%= flow %>">
+        <div class="form-row">
+            <label>Okta SSO URL (Entry point)
+                <input type="url" name="entryPoint" required
+                       placeholder="https://your-tenant.okta.com/app/.../sso/saml"
+                       value="<%= profile ? profile.entryPoint : '' %>">
+            </label>
+        </div>
+        <div class="form-row">
+            <label>SP Issuer / Audience URI
+                <input type="text" name="issuer" required
+                       placeholder="https://<your-domain>/<%= flow %>"
+                       value="<%= profile ? profile.issuer : '' %>">
+            </label>
+            <label>Skip SAML attributes (comma-separated)
+                <input type="text" name="skipAttributes"
+                       placeholder="firstName,lastName,email"
+                       value="<%= profile ? (profile.skipAttributes || '') : 'firstName,lastName,email' %>">
+            </label>
+        </div>
+        <% if (flow === 'scim') { %>
+            <div class="form-row">
+                <label>SCIM bearer token
+                    <input type="text" name="scimToken"
+                           placeholder="generate with: openssl rand -hex 32"
+                           value="<%= profile ? (profile.scimToken || '') : '' %>">
+                </label>
+            </div>
+        <% } %>
+        <div class="form-row">
+            <label>Bootstrap admin emails (comma-separated, optional)
+                <input type="text" name="adminEmails"
+                       placeholder="ops@example.com,ciso@example.com"
+                       value="<%= profile ? (profile.adminEmails || '') : '' %>">
+            </label>
+        </div>
+        <div class="form-row">
+            <label style="width:100%">SAML signing certificate (PEM)
+                <textarea name="cert" required rows="14"
+                    style="width:100%;font-family:'JetBrains Mono',Menlo,monospace;font-size:11px;padding:8px;border:1px solid #d1d5db;border-radius:4px"
+                    placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"><%= profile ? profile.cert : '' %></textarea>
+            </label>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save integration</button>
+            <a href="/admin/integrations" class="btn">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<%- include('_footer') %>

@@ -1,6 +1,9 @@
 <%- include('_header') %>
 
-<h2>Dashboard</h2>
+<h2>Admin dashboard</h2>
+<% if (adminUser) { %>
+    <p class="muted">Signed in as <code><%= adminUser %></code>.</p>
+<% } %>
 
 <div class="card-grid">
     <div class="stat-card">
@@ -25,9 +28,26 @@
     </div>
 </div>
 
+<h3>Identity integrations</h3>
+<ul class="link-list">
+    <% integrations.forEach(function(i) { %>
+        <li>
+            <strong><%= i.key.toUpperCase() %></strong>
+            <%= i.key === 'byo' ? '— Path A · BYO entitlements' : '— Path B · Governance with SCIM 2.0' %> —
+            <% if (i.configured) { %>
+                <a href="/<%= i.key %>">try the demo →</a> ·
+                <a href="/admin/integrations/<%= i.key %>/edit">edit config</a>
+            <% } else { %>
+                not configured · <a href="/admin/integrations/<%= i.key %>/edit">configure</a>
+            <% } %>
+        </li>
+    <% }) %>
+</ul>
+
 <h3>Quick links</h3>
 <ul class="link-list">
-    <li><a href="/admin/entitlements">Manage entitlement catalog →</a></li>
+    <li><a href="/admin/integrations">Manage SAML integrations →</a></li>
+    <li><a href="/admin/profiles">Manage entitlement catalog →</a></li>
     <li><a href="/admin/users">View provisioned users →</a></li>
     <li><a href="/scim/v2/Entitlements" target="_blank">Inspect SCIM Entitlements endpoint ↗</a> <small>(needs bearer token)</small></li>
 </ul>

@@ -1,0 +1,61 @@
+<%- include('_header') %>
+
+<h2>Identity integrations</h2>
+<p class="muted">
+    Each row is one of the two SAML connections the CEM App can mount. They correspond
+    to two different Okta app integrations on your tenant — typically a plain
+    <strong>SAML 2.0 app</strong> for BYO and a <strong>(Header Auth) Governance with SCIM 2.0</strong>
+    app for SCIM. Saving an integration writes <code>profiles/&lt;flow&gt;/config.json</code> +
+    <code>saml.pem</code>; restart the server to pick up SAML strategy changes.
+</p>
+
+<% if (flash) { %><div class="flash success"><%= flash %></div><% } %>
+<% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Flow</th>
+            <th>Status</th>
+            <th>Entry point</th>
+            <th>Audience</th>
+            <th>SCIM token</th>
+            <th>Admin emails</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+    <% flows.forEach(function(f) { %>
+        <tr>
+            <td>
+                <strong><%= f.name.toUpperCase() %></strong>
+                <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em">
+                    <%= f.name === 'byo' ? 'Path A' : 'Path B' %>
+                </div>
+            </td>
+            <td>
+                <span class="badge type-<%= f.configured ? 'access' : 'role' %>">
+                    <%= f.configured ? 'Configured' : 'Not set' %>
+                </span>
+            </td>
+            <td><code class="muted" style="word-break:break-all"><%= f.entryPoint || '—' %></code></td>
+            <td><code class="muted" style="word-break:break-all"><%= f.issuer || '—' %></code></td>
+            <td><code class="muted"><%= f.scimTokenMask || (f.name === 'byo' ? 'n/a' : '—') %></code></td>
+            <td><code class="muted"><%= f.adminEmails || '—' %></code></td>
+            <td class="actions">
+                <a class="btn-link" href="/admin/integrations/<%= f.name %>/edit">
+                    <%= f.configured ? 'edit' : 'configure' %>
+                </a>
+            </td>
+        </tr>
+    <% }) %>
+    </tbody>
+</table>
+
+<p class="muted" style="margin-top:24px">
+    <strong>Note:</strong> SAML strategies are wired up at server start. After saving an
+    integration, restart the server (<code>sudo systemctl restart cemapp</code>) for the
+    new entry point / cert to take effect.
+</p>
+
+<%- include('_footer') %>
