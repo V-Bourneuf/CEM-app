@@ -138,6 +138,85 @@
 .muted-inline {
     color: #9ca3af; font-size: 12px; font-style: italic; margin-left: 4px;
 }
+
+/* ── Paste-into-Okta card on integration edit ──────────────── */
+.okta-paste-card {
+    background: #f0f7ff;
+    border: 1px solid #c5dfff;
+    border-left: 4px solid #0131FF;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0 24px;
+}
+.okta-paste-card h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+    color: #00033E;
+}
+.okta-paste-card h4 {
+    margin: 16px 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #5e6166;
+    font-weight: 600;
+}
+.okta-paste-card p { font-size: 13px; }
+.paste-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+    font-size: 13px;
+}
+.paste-table tr { border-top: 1px solid #f0f0f0; }
+.paste-table tr:first-child { border-top: 0; }
+.paste-table thead tr { background: #f9fafb; }
+.paste-table th {
+    text-align: left; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280;
+    padding: 8px 12px;
+}
+.paste-table td {
+    padding: 8px 12px;
+    vertical-align: middle;
+}
+.paste-table td:first-child { color: #5e6166; font-weight: 500; width: 36%; }
+.paste-table td:last-child  { width: 1%; white-space: nowrap; text-align: right; }
+.paste-table code {
+    background: #f3f4f6;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    word-break: break-all;
+}
+.paste-table--attrs td:first-child { width: 18%; }
+.paste-table--attrs td:nth-child(2) { width: 14%; color: #6b7280; font-size: 12px; }
+.token-mask { letter-spacing: 0.04em; }
+.btn-copy, .btn-show {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s ease;
+    margin-left: 4px;
+}
+.btn-copy:hover, .btn-show:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+.btn-copy--ok {
+    background: #d1fae5 !important;
+    border-color: #10b981 !important;
+    color: #065f46 !important;
+}
 .profile-actions { margin-top: auto; }
 .profile-actions form { margin: 0; }
 .profile-actions .btn { width: 100%; }

@@ -15,20 +15,159 @@
 
 <% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
 
+<!-- ─────────── Paste-into-Okta panel ─────────── -->
+<section class="okta-paste-card">
+    <h3>📋 Paste these values into the Okta app</h3>
+    <p class="muted" style="margin-top:0">
+        These are the URLs and tokens this server is expecting on its <code>/<%= flow %></code> path.
+        Open the corresponding Okta app integration in the admin console and copy them in.
+    </p>
+
+    <h4>SAML Sign On settings</h4>
+    <table class="paste-table">
+        <% if (flow === 'byo') { %>
+            <tr>
+                <td>Single sign-on URL</td>
+                <td><code data-copy="<%= oktaTargets.ssoUrl %>"><%= oktaTargets.ssoUrl %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.ssoUrl %>">Copy</button></td>
+            </tr>
+            <tr>
+                <td>Audience URI (SP Entity ID)</td>
+                <td><code data-copy="<%= oktaTargets.audienceUri %>"><%= oktaTargets.audienceUri %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.audienceUri %>">Copy</button></td>
+            </tr>
+            <tr>
+                <td>Name ID format</td>
+                <td><code>EmailAddress</code></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Application username</td>
+                <td><code>Email</code></td>
+                <td></td>
+            </tr>
+        <% } else { %>
+            <tr>
+                <td>SSO ACS URL Override</td>
+                <td><code><%= oktaTargets.acsUrlOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.acsUrlOverride %>">Copy</button></td>
+            </tr>
+            <tr>
+                <td>Audience URI Override</td>
+                <td><code><%= oktaTargets.audienceUriOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.audienceUriOverride %>">Copy</button></td>
+            </tr>
+            <tr>
+                <td>Recipient URL Override</td>
+                <td><code><%= oktaTargets.recipientOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.recipientOverride %>">Copy</button></td>
+            </tr>
+            <tr>
+                <td>Destination URL Override</td>
+                <td><code><%= oktaTargets.destinationOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.destinationOverride %>">Copy</button></td>
+            </tr>
+        <% } %>
+    </table>
+
+    <h4>SAML Attribute Statements</h4>
+    <table class="paste-table paste-table--attrs">
+        <thead>
+            <tr><th>Name</th><th>Name format</th><th>Value</th><th></th></tr>
+        </thead>
+        <tbody>
+            <% oktaTargets.attrStatements.forEach(function(a) { %>
+                <tr>
+                    <td><code><%= a.name %></code></td>
+                    <td><%= a.format %></td>
+                    <td><code><%= a.value %></code></td>
+                    <td><button class="btn-copy" data-copy-target="<%= a.value %>">Copy value</button></td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+    <% if (flow === 'byo') { %>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">
+            The <code>access</code> and <code>role</code> attributes resolve via Okta IGA's
+            Entitlement Management — you must enable <strong>Governance Engine</strong> on the
+            app's General tab, then define <code>access</code> + <code>role</code> as entitlement
+            attributes (with values matching this app's catalog at
+            <a href="/admin/profiles">/admin/profiles</a>) before they'll resolve at SAML time.
+        </p>
+    <% } %>
+
+    <% if (flow === 'scim') { %>
+        <h4>Provisioning — SCIM 2.0 (Header Auth)</h4>
+        <table class="paste-table">
+            <tr>
+                <td>SCIM 2.0 Base URL</td>
+                <td><code><%= oktaTargets.scimBaseUrl %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.scimBaseUrl %>">Copy</button></td>
+            </tr>
+            <tr>
+                <td>Authentication Mode</td>
+                <td><code>HTTP Header</code></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>HTTP Header → Authorization</td>
+                <td>
+                    <% if (oktaTargets.scimToken) { %>
+                        <code class="token-mask" title="Click Show to reveal">
+                            <span data-token-mask><%= oktaTargets.scimToken.slice(0, 4) + '…' + oktaTargets.scimToken.slice(-4) %></span>
+                            <span data-token-clear style="display:none"><%= oktaTargets.scimToken %></span>
+                        </code>
+                    <% } else { %>
+                        <code class="muted">— not set; generate with <code>openssl rand -hex 32</code> and paste below</code>
+                    <% } %>
+                </td>
+                <td>
+                    <% if (oktaTargets.scimToken) { %>
+                        <button class="btn-copy"  data-copy-target="<%= oktaTargets.scimToken %>" data-copy-label="Copy">Copy</button>
+                        <button class="btn-show"  data-show-token>Show</button>
+                    <% } %>
+                </td>
+            </tr>
+            <tr>
+                <td>Unique identifier field for users</td>
+                <td><code>userName</code></td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>Import Groups</td>
+                <td><code>unchecked</code> — this app uses entitlements/roles, not groups</td>
+                <td></td>
+            </tr>
+        </table>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">
+            Okta's <code>(Header Auth) Governance with SCIM 2.0</code> template sends the token
+            <strong>raw</strong> in the <code>Authorization</code> header (no <code>Bearer</code> prefix).
+            This server's <code>scim/auth.js</code> accepts both forms, so either works.
+        </p>
+    <% } %>
+</section>
+
+<!-- ─────────── Form (input from Okta) ─────────── -->
 <section class="form-card">
+    <h3 style="margin-top:0">⬇︎ Paste the values <em>from</em> Okta into this form</h3>
+    <p class="muted" style="margin-top:0">
+        Once the Okta app is configured with the values above, copy these from
+        the Okta <strong>Sign On</strong> tab → <strong>View SAML setup instructions</strong>:
+    </p>
+
     <form method="post" action="/admin/integrations/<%= flow %>">
         <div class="form-row">
-            <label>Okta SSO URL (Entry point)
+            <label>Okta SSO URL (Identity Provider Single Sign-On URL)
                 <input type="url" name="entryPoint" required
                        placeholder="https://your-tenant.okta.com/app/.../sso/saml"
                        value="<%= profile ? profile.entryPoint : '' %>">
             </label>
         </div>
         <div class="form-row">
-            <label>SP Issuer / Audience URI
+            <label>SP Issuer / Audience URI (must match the value above)
                 <input type="text" name="issuer" required
-                       placeholder="https://<your-domain>/<%= flow %>"
-                       value="<%= profile ? profile.issuer : '' %>">
+                       placeholder="<%= flow === 'byo' ? oktaTargets.audienceUri : oktaTargets.audienceUriOverride %>"
+                       value="<%= profile ? profile.issuer : (flow === 'byo' ? oktaTargets.audienceUri : oktaTargets.audienceUriOverride) %>">
             </label>
             <label>Skip SAML attributes (comma-separated)
                 <input type="text" name="skipAttributes"
@@ -65,39 +204,86 @@
                     placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"><%= profile ? profile.cert : '' %></textarea>
             </label>
         </div>
-        <script>
-            (function() {
-                const fileInput   = document.getElementById('certFileInput');
-                const textarea    = document.getElementById('certTextarea');
-                const statusLabel = document.getElementById('certFileStatus');
-                fileInput.addEventListener('change', function() {
-                    const f = fileInput.files && fileInput.files[0];
-                    if (!f) return;
-                    const r = new FileReader();
-                    r.onload = function() {
-                        const content = String(r.result || '').trim();
-                        if (!content.includes('-----BEGIN CERTIFICATE-----')) {
-                            statusLabel.textContent = '⚠ ' + f.name + ' does not look like a PEM cert';
-                            statusLabel.style.color = '#b91c1c';
-                            return;
-                        }
-                        textarea.value = content;
-                        statusLabel.textContent = '✓ loaded ' + f.name + ' (' + content.length + ' bytes)';
-                        statusLabel.style.color = '#2e8b57';
-                    };
-                    r.onerror = function() {
-                        statusLabel.textContent = '✗ failed to read ' + f.name;
-                        statusLabel.style.color = '#b91c1c';
-                    };
-                    r.readAsText(f);
-                });
-            })();
-        </script>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Save integration</button>
             <a href="/admin/integrations" class="btn">Cancel</a>
         </div>
     </form>
 </section>
+
+<script>
+    // ───── cert file picker ─────
+    (function() {
+        const fileInput   = document.getElementById('certFileInput');
+        const textarea    = document.getElementById('certTextarea');
+        const statusLabel = document.getElementById('certFileStatus');
+        fileInput.addEventListener('change', function() {
+            const f = fileInput.files && fileInput.files[0];
+            if (!f) return;
+            const r = new FileReader();
+            r.onload = function() {
+                const content = String(r.result || '').trim();
+                if (!content.includes('-----BEGIN CERTIFICATE-----')) {
+                    statusLabel.textContent = '⚠ ' + f.name + ' does not look like a PEM cert';
+                    statusLabel.style.color = '#b91c1c';
+                    return;
+                }
+                textarea.value = content;
+                statusLabel.textContent = '✓ loaded ' + f.name + ' (' + content.length + ' bytes)';
+                statusLabel.style.color = '#2e8b57';
+            };
+            r.onerror = function() {
+                statusLabel.textContent = '✗ failed to read ' + f.name;
+                statusLabel.style.color = '#b91c1c';
+            };
+            r.readAsText(f);
+        });
+    })();
+
+    // ───── copy-to-clipboard buttons ─────
+    document.querySelectorAll('.btn-copy').forEach(function(btn) {
+        btn.addEventListener('click', function(ev) {
+            ev.preventDefault();
+            const value = btn.getAttribute('data-copy-target');
+            if (!value) return;
+            const original = btn.textContent;
+            navigator.clipboard.writeText(value).then(function() {
+                btn.textContent = '✓ copied';
+                btn.classList.add('btn-copy--ok');
+                setTimeout(function() {
+                    btn.textContent = original;
+                    btn.classList.remove('btn-copy--ok');
+                }, 1500);
+            }).catch(function() {
+                // fallback: select content of the adjacent code block
+                const code = btn.closest('tr')?.querySelector('code');
+                if (code) {
+                    const range = document.createRange();
+                    range.selectNodeContents(code);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+                btn.textContent = '— select & copy manually';
+                setTimeout(function() { btn.textContent = original; }, 2000);
+            });
+        });
+    });
+
+    // ───── show/hide masked SCIM token ─────
+    document.querySelectorAll('[data-show-token]').forEach(function(btn) {
+        btn.addEventListener('click', function(ev) {
+            ev.preventDefault();
+            const row = btn.closest('tr');
+            const masked = row.querySelector('[data-token-mask]');
+            const clear  = row.querySelector('[data-token-clear]');
+            if (!masked || !clear) return;
+            const showing = clear.style.display !== 'none';
+            masked.style.display = showing ? '' : 'none';
+            clear.style.display  = showing ? 'none' : '';
+            btn.textContent = showing ? 'Show' : 'Hide';
+        });
+    });
+</script>
 
 <%- include('_footer') %>

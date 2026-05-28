@@ -307,10 +307,45 @@ router.get('/integrations/:flow/edit', (req, res) => {
     if (!KNOWN_FLOWS.includes(req.params.flow)) {
         return res.redirect('/admin/integrations?error=' + encodeURIComponent('Unknown flow: ' + req.params.flow));
     }
+    const flow = req.params.flow;
+    const profile = loadProfile(flow);
+    // Public URL — used to render the "paste into Okta" callback / audience / SCIM URLs.
+    // Honors X-Forwarded-Proto from nginx so we get https:// in production.
+    const publicUrl = (req.protocol || 'https') + '://' + (req.get('host') || 'localhost');
+    const oktaTargets = (flow === 'byo')
+        ? {
+              ssoUrl:        `${publicUrl}/byo/login/callback`,
+              audienceUri:   `${publicUrl}/byo`,
+              attrStatements: [
+                  { name: 'firstName', format: 'Basic', value: 'user.firstName' },
+                  { name: 'lastName',  format: 'Basic', value: 'user.lastName'  },
+                  { name: 'email',     format: 'Basic', value: 'user.email'     },
+                  { name: 'access',    format: 'Basic', value: 'appuser.access' },
+                  { name: 'role',      format: 'Basic', value: 'appuser.role'   },
+              ],
+              scimBaseUrl: null,
+              scimToken:   null,
+          }
+        : {
+              acsUrlOverride:        `${publicUrl}/scim/login/callback`,
+              audienceUriOverride:   `${publicUrl}/scim`,
+              recipientOverride:     `${publicUrl}/scim/login/callback`,
+              destinationOverride:   `${publicUrl}/scim/login/callback`,
+              attrStatements: [
+                  { name: 'firstName', format: 'Basic', value: 'user.firstName' },
+                  { name: 'lastName',  format: 'Basic', value: 'user.lastName'  },
+                  { name: 'email',     format: 'Basic', value: 'user.email'     },
+              ],
+              scimBaseUrl: `${publicUrl}/scim/v2`,
+              scimToken:   profile ? (profile.scimToken || '') : '',
+          };
+
     renderAdmin(res, 'integration-edit.ejs', {
         page: 'integrations',
-        flow: req.params.flow,
-        profile: loadProfile(req.params.flow),
+        flow,
+        profile,
+        oktaTargets,
+        publicUrl,
         flash: null,
         error: req.query.error || null,
     });
