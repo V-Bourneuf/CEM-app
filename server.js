@@ -50,7 +50,7 @@ passport.deserializeUser((u, done) => done(null, u));
 // ---------- public routes ----------
 
 app.get('/', (req, res) => {
-    res.render('login');
+    res.render('login', { host: req.headers.host || 'localhost' });
 });
 
 app.get('/auth/saml', passport.authenticate('saml', { failureRedirect: '/' }));

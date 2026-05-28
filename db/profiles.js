@@ -1,12 +1,15 @@
 /**
- * Salteau entitlement profile catalog.
+ * Entitlement profile catalog.
  *
- * Each profile represents a business unit at Salteau (kitefoil design + sales).
- * Admins enable a profile to add its roles + access entitlements to the live
- * catalog; disabling a profile removes them (and cascades any user grants).
+ * Each profile represents a different business function. Admins enable a
+ * profile to add its roles + access entitlements to the live catalog;
+ * disabling a profile removes them (and cascades any user grants).
  *
- * The legacy "Software & DevOps" set is encoded here as one profile so that
- * everything in the entitlements table has a `profile` it belongs to.
+ * The demo dataset uses a kitefoil designer/retailer scenario for
+ * illustration — Retail, Engineering & Manufacturing, R&D / Design — plus
+ * an Administration profile that grants in-app admin access and a
+ * "Software & DevOps" profile for internal platform engineering. Replace
+ * with whatever entitlements fit your own use case.
  *
  * Profile structure mirrors db/schema.sql columns one-to-one for entitlements:
  *   id            — slug, unique across the whole catalog
@@ -111,8 +114,8 @@ const PROFILES = {
     'software-devops': {
         id:          'software-devops',
         name:        'Software & DevOps',
-        description: 'Internal platform engineering — the team that builds + operates Salteau\'s ' +
-                     'systems (this CEM app, the e-commerce backend, etc.).',
+        description: 'Internal platform engineering — the team that builds + operates ' +
+                     'the company\'s internal systems (this CEM app, the e-commerce backend, etc.).',
         entitlements: [
             // Roles (legacy seed)
             { id: 'software-dev',         type: 'role', display_name: 'Software Dev',       value: 'Software Dev' },

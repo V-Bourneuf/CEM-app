@@ -11,10 +11,11 @@ It's a single Node.js / Express server running:
 | `/scim/v2/*`  | SCIM 2.0 server — Users, Groups (stub), Roles, Entitlements, Schemas, ServiceProviderConfig, ResourceTypes |
 | `/admin/*`    | Admin UI — entitlement catalog management, profile bundles, provisioned-user view (SAML-gated) |
 
-The app is built around a Salteau-flavoured demo (kitefoil designer & retailer);
-its entitlement catalog is organized into "profiles" — Retail, Engineering & Manufacturing,
-R&D / Design, Software & DevOps, and an Administration profile that grants admin
-access in-app.
+The bundled demo dataset uses a kitefoil designer/retailer scenario for
+illustration; its entitlement catalog is organized into "profiles" — Retail,
+Engineering & Manufacturing, R&D / Design, Software & DevOps, and an
+Administration profile that grants admin access in-app. Replace these with
+whatever entitlements fit your own use case (`db/profiles.js`).
 
 ---
 
@@ -81,8 +82,8 @@ Use this when:
 
    Then mirror the **values** from the app's catalog into each attribute's enum
    list. The exact values are whatever's currently in your app's catalog
-   (visible in `/admin/profiles`); for the seeded Salteau demo profiles they
-   include: `deploy_code_to_prod`, `process_pos_sale`, `approve_production_run`,
+   (visible in `/admin/profiles`); for the bundled demo profiles they include
+   `deploy_code_to_prod`, `process_pos_sale`, `approve_production_run`,
    `edit_cad_designs`, etc. for `access`; and `Software Dev`, `Store Associate`,
    `Production Engineer`, etc. for `role`.
 
@@ -251,21 +252,24 @@ when neither of the above is configured.
 
 ## Entitlement profiles
 
-The catalog is organized into profiles, each tailored to a Salteau business unit:
+The catalog is organized into profiles, each tailored to a different business
+function. The bundled dataset uses a kitefoil designer/retailer scenario for
+illustration:
 
-| Profile                        | Theme                                                            | Roles | Access |
-|--------------------------------|------------------------------------------------------------------|-------|--------|
-| **Administration**             | App Admin role + manage_cem_app — both `grants_admin = true`     | 1     | 1      |
-| **Retail & E-commerce**        | Store associates, e-commerce, customer service, returns          | 4     | 8      |
-| **Engineering & Manufacturing** | Production engineers, QA, workshop, composite specialists        | 4     | 8      |
-| **R&D / Design**               | Hydrofoil designers, naval architects, **test pilots**, materials | 4     | 8      |
-| **Software & DevOps**          | Internal platform engineering (legacy seed)                      | 4     | 11     |
+| Profile                        | Theme                                                             | Roles | Access |
+|--------------------------------|-------------------------------------------------------------------|-------|--------|
+| **Administration**             | App Admin role + manage_cem_app — both `grants_admin = true`      | 1     | 1      |
+| **Retail & E-commerce**        | Store associates, e-commerce, customer service, returns           | 4     | 8      |
+| **Engineering & Manufacturing** | Production engineers, QA, workshop, composite specialists         | 4     | 8      |
+| **R&D / Design**               | Hydrofoil designers, naval architects, test pilots, materials      | 4     | 8      |
+| **Software & DevOps**          | Internal platform engineering                                     | 4     | 11     |
 
-Admins toggle profiles in `/admin/profiles`. **Only entitlements from
-*enabled* profiles are returned by `/scim/v2/Roles` and `/scim/v2/Entitlements`** —
-i.e. only enabled-profile entitlements are discoverable by Okta during
-import. Disabling a profile cascades any existing user grants on those
-entitlements.
+Admins toggle profiles in `/admin/profiles`. **Enabling a profile inserts its
+entitlements into the catalog table; disabling deletes them** (the FK on
+`user_entitlements` cascades, revoking any user grants tied to those
+entitlements). Because there's no separate "active" flag — disabled profiles
+have zero rows in the table — `/scim/v2/Roles` and `/scim/v2/Entitlements`
+naturally only ever expose entitlements from currently-enabled profiles.
 
 You can also add **custom entitlements** inside any enabled profile via the
 admin UI's inline form (the new entitlement gets stamped with that profile's
@@ -282,7 +286,7 @@ id, so it'll be swept too if the profile is later disabled).
 ├── db/
 │   ├── schema.sql          # SQLite DDL
 │   ├── index.js            # Connection, idempotent migrations, Entitlements/Users/Grants/Profiles APIs
-│   └── profiles.js         # Static profile templates (Salteau bundles)
+│   └── profiles.js         # Static profile templates (demo bundles)
 ├── scim/
 │   ├── router.js           # SCIM 2.0 mount: /Users /Groups /Roles /Entitlements /<discovery>
 │   ├── auth.js             # Bearer-token middleware, SCIM error helper

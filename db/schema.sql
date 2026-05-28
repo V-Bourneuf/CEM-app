@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS entitlements (
     value         TEXT NOT NULL,               -- the value carried in SAML/SCIM assignments
     column_hint   TEXT,                        -- optional UI grouping ('softwareDev', 'devOps')
     description   TEXT,
-    profile       TEXT,                        -- which Salteau profile this belongs to (retail, engineering, rnd, software-devops, administration)
+    profile       TEXT,                        -- which profile this belongs to (retail, engineering, rnd, software-devops, administration)
     grants_admin  INTEGER NOT NULL DEFAULT 0,  -- 1 = granting this entitlement gives user access to /admin
     created_at    TEXT DEFAULT (datetime('now')),
     updated_at    TEXT DEFAULT (datetime('now')),
