@@ -1,14 +1,14 @@
 /**
  * Admin UI router — entitlement catalog + integrations + users.
  *
- * Auth: SAML-only via getAdminVerdict() (admin/auth.js).
- * Three paths to admin (any one suffices):
+ * Auth: SAML-only via getAdminVerdict() (admin/auth.js), with a local
+ * breakglass account as a tertiary option.
+ * Three SAML-based admin paths (any one suffices, plus breakglass):
  *   1. Bootstrap allowlist — email matches a value in ADMIN_EMAILS env
  *   2. SAML assertion-based — user holds a grants_admin entitlement carried
- *      in the SAML attributes (Path A: BYO entitlements)
- *   3. SCIM grant-based — user is provisioned in our DB and holds a
- *      grants_admin entitlement (Path B: Governance with SCIM)
- * No HTTP basic-auth fallback — there is exactly one way to be an admin: SAML.
+ *      in the SAML attributes (BYO flow, when not yet SCIM-provisioned)
+ *   3. SCIM grant-based — user is provisioned in our DB (in the same flow
+ *      they signed in through) and holds a grants_admin entitlement
  */
 
 const express = require('express');
@@ -209,7 +209,7 @@ router.get('/users', (req, res) => {
         ...u,
         grants: Grants.listForUser(u.id),
     }));
-    renderAdmin(res, 'users.ejs', { page: 'users', users });
+    renderAdmin(res, 'users.ejs', { page: 'users', users, flows: KNOWN_FLOWS });
 });
 
 // ---------- catalog profiles ----------
@@ -312,7 +312,11 @@ router.get('/integrations/:flow/edit', (req, res) => {
     // Public URL — used to render the "paste into Okta" callback / audience / SCIM URLs.
     // Honors X-Forwarded-Proto from nginx so we get https:// in production.
     const publicUrl = (req.protocol || 'https') + '://' + (req.get('host') || 'localhost');
-    const oktaTargets = (flow === 'byo')
+
+    // SAML targets differ per flow: BYO uses a plain SAML 2.0 app (sets the
+    // SSO URL / Audience URI directly), while SCIM uses the (Header Auth)
+    // Governance with SCIM 2.0 template (sets the override fields).
+    const samlTargets = (flow === 'byo')
         ? {
               ssoUrl:        `${publicUrl}/byo/login/callback`,
               audienceUri:   `${publicUrl}/byo`,
@@ -323,8 +327,6 @@ router.get('/integrations/:flow/edit', (req, res) => {
                   { name: 'access',    format: 'Basic', value: 'appuser.access' },
                   { name: 'role',      format: 'Basic', value: 'appuser.role'   },
               ],
-              scimBaseUrl: null,
-              scimToken:   null,
           }
         : {
               acsUrlOverride:        `${publicUrl}/scim/login/callback`,
@@ -336,15 +338,22 @@ router.get('/integrations/:flow/edit', (req, res) => {
                   { name: 'lastName',  format: 'Basic', value: 'user.lastName'  },
                   { name: 'email',     format: 'Basic', value: 'user.email'     },
               ],
-              scimBaseUrl: `${publicUrl}/scim/v2`,
-              scimToken:   profile ? (profile.scimToken || '') : '',
           };
+
+    // Both flows now have their own SCIM endpoint (BYO can provision users in
+    // addition to its SAML-attribute entitlements path). Each Okta app gets
+    // its own SCIM Base URL and its own bearer token.
+    const scimTargets = {
+        scimBaseUrl: `${publicUrl}/${flow}/scim/v2`,
+        scimToken:   profile ? (profile.scimToken || '') : '',
+    };
 
     renderAdmin(res, 'integration-edit.ejs', {
         page: 'integrations',
         flow,
         profile,
-        oktaTargets,
+        samlTargets,
+        scimTargets,
         publicUrl,
         flash: null,
         error: req.query.error || null,

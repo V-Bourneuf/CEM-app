@@ -2,11 +2,13 @@
 
 <h2>Identity integrations</h2>
 <p class="muted">
-    Each row is one of the two SAML connections the CEM App can mount. They correspond
-    to two different Okta app integrations on your tenant — typically a plain
+    Each row is one of the two flows the CEM App mounts. They correspond to two
+    different Okta app integrations on your tenant — typically a plain
     <strong>SAML 2.0 app</strong> for BYO and a <strong>(Header Auth) Governance with SCIM 2.0</strong>
-    app for SCIM. Saving an integration writes <code>profiles/&lt;flow&gt;/config.json</code> +
-    <code>saml.pem</code>; restart the server to pick up SAML strategy changes.
+    app for SCIM. Both flows have their own SCIM endpoint and their own user namespace,
+    so each Okta app provisions users independently. Saving an integration writes
+    <code>profiles/&lt;flow&gt;/config.json</code> + <code>saml.pem</code>; restart the server
+    to pick up SAML strategy changes.
 </p>
 
 <% if (flash) { %><div class="flash success"><%= flash %></div><% } %>
@@ -30,7 +32,7 @@
             <td>
                 <strong><%= f.name.toUpperCase() %></strong>
                 <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em">
-                    <%= f.name === 'byo' ? 'Path A' : 'Path B' %>
+                    <%= f.name === 'byo' ? 'BYO entitlements' : 'Governance + SCIM' %>
                 </div>
             </td>
             <td>
@@ -40,7 +42,7 @@
             </td>
             <td><code class="muted" style="word-break:break-all"><%= f.entryPoint || '—' %></code></td>
             <td><code class="muted" style="word-break:break-all"><%= f.issuer || '—' %></code></td>
-            <td><code class="muted"><%= f.scimTokenMask || (f.name === 'byo' ? 'n/a' : '—') %></code></td>
+            <td><code class="muted"><%= f.scimTokenMask || '—' %></code></td>
             <td><code class="muted"><%= f.adminEmails || '—' %></code></td>
             <td class="actions">
                 <a class="btn-link" href="/admin/integrations/<%= f.name %>/edit">

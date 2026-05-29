@@ -24,17 +24,21 @@ CREATE INDEX IF NOT EXISTS idx_entitlements_value ON entitlements(value);
 CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,           -- internal id (uuid)
     external_id   TEXT,                        -- Okta-supplied externalId (optional)
-    user_name     TEXT NOT NULL UNIQUE,        -- SCIM userName (typically email)
+    user_name     TEXT NOT NULL,               -- SCIM userName (typically email)
     email         TEXT,
     given_name    TEXT,
     family_name   TEXT,
     active        INTEGER NOT NULL DEFAULT 1,
+    flow          TEXT NOT NULL,               -- which Okta app provisioned this user ('byo' or 'scim')
     created_at    TEXT DEFAULT (datetime('now')),
-    updated_at    TEXT DEFAULT (datetime('now'))
+    updated_at    TEXT DEFAULT (datetime('now')),
+    UNIQUE (flow, user_name)                   -- userName is unique within a flow, not globally
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_name);
-CREATE INDEX IF NOT EXISTS idx_users_email    ON users(email);
+-- idx_users_flow_username is created by db/index.js runMigrations() so it works
+-- both for fresh DBs (table created from this schema) and legacy DBs (where the
+-- flow column is added by migration before the index can reference it).
+CREATE INDEX IF NOT EXISTS idx_users_email         ON users(email);
 
 CREATE TABLE IF NOT EXISTS user_entitlements (
     user_id        TEXT NOT NULL,

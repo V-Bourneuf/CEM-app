@@ -63,6 +63,46 @@ function runMigrations() {
         });
         tx();
     }
+
+    // 2026-05-29: add `flow` column to users + drop the global UNIQUE(user_name)
+    // in favor of UNIQUE(flow, user_name). SQLite can't drop a column-level UNIQUE
+    // in place — recreate the table. Existing rows are backfilled as flow='scim'
+    // (the only flow that previously supported provisioning).
+    const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+    if (!userCols.includes('flow')) {
+        const tx = db.transaction(() => {
+            db.exec(`
+                CREATE TABLE users_new (
+                    id            TEXT PRIMARY KEY,
+                    external_id   TEXT,
+                    user_name     TEXT NOT NULL,
+                    email         TEXT,
+                    given_name    TEXT,
+                    family_name   TEXT,
+                    active        INTEGER NOT NULL DEFAULT 1,
+                    flow          TEXT NOT NULL,
+                    created_at    TEXT DEFAULT (datetime('now')),
+                    updated_at    TEXT DEFAULT (datetime('now')),
+                    UNIQUE (flow, user_name)
+                );
+                INSERT INTO users_new (id, external_id, user_name, email, given_name, family_name, active, flow, created_at, updated_at)
+                    SELECT id, external_id, user_name, email, given_name, family_name, active, 'scim', created_at, updated_at FROM users;
+                DROP TABLE users;
+                ALTER TABLE users_new RENAME TO users;
+                CREATE INDEX IF NOT EXISTS idx_users_flow_username ON users(flow, user_name);
+                CREATE INDEX IF NOT EXISTS idx_users_email         ON users(email);
+            `);
+        });
+        // FK ON DELETE CASCADE on user_entitlements points at users.id; ids are preserved
+        // so the swap is FK-safe — but SQLite still complains during the rename if foreign_keys
+        // is on. Toggle it off for this migration only.
+        db.pragma('foreign_keys = OFF');
+        try { tx(); } finally { db.pragma('foreign_keys = ON'); }
+    }
+
+    // Always-idempotent — safe whether the migration block above ran or the
+    // table was created fresh from schema.sql.
+    db.exec("CREATE INDEX IF NOT EXISTS idx_users_flow_username ON users(flow, user_name)");
 }
 
 function close() {
@@ -177,35 +217,49 @@ const Entitlements = {
 
 function newId() { return crypto.randomUUID(); }
 
+// Every lookup that originates from a per-flow context (a SCIM request, a
+// dashboard render, an admin verdict for an authenticated session) MUST pass
+// `flow` so users from one Okta app can't accidentally answer a request scoped
+// to the other. Admin-only views (e.g. /admin/users) call listAll() to see
+// everyone across both flows.
 const Users = {
-    list({ filter, startIndex = 1, count = 100 } = {}) {
+    list({ filter, startIndex = 1, count = 100, flow } = {}) {
         // Minimal SCIM filter: `userName eq "x"` and `active eq true`
-        let where = '1=1';
+        const where = ['1=1'];
         const params = [];
+        if (flow) { where.push('flow = ?'); params.push(flow); }
         if (filter) {
             const eqMatch = /^(\w+)\s+eq\s+"?([^"]+)"?$/i.exec(filter);
             if (eqMatch) {
                 const [, field, value] = eqMatch;
-                if (['userName', 'user_name'].includes(field)) { where = 'user_name = ?';   params.push(value); }
-                else if (field === 'email')                    { where = 'email = ?';       params.push(value); }
-                else if (field === 'externalId')               { where = 'external_id = ?'; params.push(value); }
-                else if (field === 'active')                   { where = 'active = ?';      params.push(value === 'true' ? 1 : 0); }
+                if (['userName', 'user_name'].includes(field)) { where.push('user_name = ?');   params.push(value); }
+                else if (field === 'email')                    { where.push('email = ?');       params.push(value); }
+                else if (field === 'externalId')               { where.push('external_id = ?'); params.push(value); }
+                else if (field === 'active')                   { where.push('active = ?');      params.push(value === 'true' ? 1 : 0); }
             }
         }
-        const total = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE ${where}`).get(...params).n;
-        const rows  = db.prepare(`SELECT * FROM users WHERE ${where} ORDER BY user_name LIMIT ? OFFSET ?`)
+        const whereSql = where.join(' AND ');
+        const total = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE ${whereSql}`).get(...params).n;
+        const rows  = db.prepare(`SELECT * FROM users WHERE ${whereSql} ORDER BY user_name LIMIT ? OFFSET ?`)
                         .all(...params, count, startIndex - 1);
         return { total, rows };
     },
-    findById(id)              { return db.prepare('SELECT * FROM users WHERE id = ?').get(id); },
-    findByUserName(userName)  { return db.prepare('SELECT * FROM users WHERE user_name = ?').get(userName); },
-    findByEmail(email)        { return db.prepare('SELECT * FROM users WHERE email = ?').get(email); },
-    create({ externalId, userName, email, givenName, familyName, active = true }) {
+    findById(id)                        { return db.prepare('SELECT * FROM users WHERE id = ?').get(id); },
+    findByUserName(userName, flow)      {
+        if (!flow) throw new Error('Users.findByUserName requires a flow');
+        return db.prepare('SELECT * FROM users WHERE user_name = ? AND flow = ?').get(userName, flow);
+    },
+    findByEmail(email, flow)            {
+        if (!flow) throw new Error('Users.findByEmail requires a flow');
+        return db.prepare('SELECT * FROM users WHERE email = ? AND flow = ?').get(email, flow);
+    },
+    create({ externalId, userName, email, givenName, familyName, active = true, flow }) {
+        if (!flow) throw new Error('Users.create requires a flow');
         const id = newId();
         db.prepare(`
-            INSERT INTO users (id, external_id, user_name, email, given_name, family_name, active)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(id, externalId || null, userName, email || null, givenName || null, familyName || null, active ? 1 : 0);
+            INSERT INTO users (id, external_id, user_name, email, given_name, family_name, active, flow)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, externalId || null, userName, email || null, givenName || null, familyName || null, active ? 1 : 0, flow);
         return this.findById(id);
     },
     update(id, patch) {
@@ -232,7 +286,7 @@ const Users = {
     delete(id) {
         return db.prepare('DELETE FROM users WHERE id = ?').run(id).changes > 0;
     },
-    listAll() { return db.prepare('SELECT * FROM users ORDER BY user_name').all(); },
+    listAll() { return db.prepare('SELECT * FROM users ORDER BY flow, user_name').all(); },
 };
 
 // ---------- grant queries ----------

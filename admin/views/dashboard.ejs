@@ -33,7 +33,7 @@
     <% integrations.forEach(function(i) { %>
         <li>
             <strong><%= i.key.toUpperCase() %></strong>
-            <%= i.key === 'byo' ? '— Path A · BYO entitlements' : '— Path B · Governance with SCIM 2.0' %> —
+            <%= i.key === 'byo' ? '— BYO entitlements (SAML attrs + SCIM provisioning)' : '— Governance with SCIM 2.0' %> —
             <% if (i.configured) { %>
                 <a href="/<%= i.key %>">try the demo →</a> ·
                 <a href="/admin/integrations/<%= i.key %>/edit">edit config</a>
@@ -48,8 +48,8 @@
 <ul class="link-list">
     <li><a href="/admin/integrations">Manage SAML integrations →</a></li>
     <li><a href="/admin/profiles">Manage entitlement catalog →</a></li>
-    <li><a href="/admin/users">View provisioned users →</a></li>
-    <li><a href="/scim/v2/Entitlements" target="_blank">Inspect SCIM Entitlements endpoint ↗</a> <small>(needs bearer token)</small></li>
+    <li><a href="/admin/users">View provisioned users (across both flows) →</a></li>
+    <li><a href="/byo/scim/v2/Entitlements" target="_blank">Inspect BYO SCIM Entitlements ↗</a> · <a href="/scim/scim/v2/Entitlements" target="_blank">SCIM SCIM Entitlements ↗</a> <small>(both need a bearer token)</small></li>
 </ul>
 
 <%- include('_footer') %>

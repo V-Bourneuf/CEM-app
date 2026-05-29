@@ -3,13 +3,15 @@
 <h2><%= profile ? 'Edit' : 'Configure' %> the <code><%= flow.toUpperCase() %></code> integration</h2>
 <p class="muted">
     <% if (flow === 'byo') { %>
-        <strong>Path A.</strong> Plain SAML 2.0 app on Okta. Define entitlement attributes (access, role)
-        in Okta IGA's Entitlement Management UI, then send them via the SAML attribute statements
-        <code>appuser.access</code> and <code>appuser.role</code>. No SCIM token required.
+        <strong>BYO flow.</strong> Plain SAML 2.0 app on Okta. Define entitlement attributes
+        (<code>access</code>, <code>role</code>) in Okta IGA's Entitlement Management UI, then
+        ship them via the SAML attribute statements <code>appuser.access</code> and
+        <code>appuser.role</code>. This flow also has its own SCIM endpoint, so the same Okta
+        app can push users into the BYO user namespace.
     <% } else { %>
-        <strong>Path B.</strong> (Header Auth) Governance with SCIM 2.0 app on Okta. Catalog is
-        discovered from <code>/scim/v2/Roles</code> + <code>/scim/v2/Entitlements</code>; user
-        grants are SCIM-PATCHed to <code>/scim/v2/Users</code>.
+        <strong>SCIM flow.</strong> (Header Auth) Governance with SCIM 2.0 app on Okta. Catalog
+        is discovered from <code>/<%= flow %>/scim/v2/Roles</code> + <code>/<%= flow %>/scim/v2/Entitlements</code>;
+        user grants are SCIM-PATCHed to <code>/<%= flow %>/scim/v2/Users</code>.
     <% } %>
 </p>
 
@@ -28,13 +30,13 @@
         <% if (flow === 'byo') { %>
             <tr>
                 <td>Single sign-on URL</td>
-                <td><code data-copy="<%= oktaTargets.ssoUrl %>"><%= oktaTargets.ssoUrl %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.ssoUrl %>">Copy</button></td>
+                <td><code data-copy="<%= samlTargets.ssoUrl %>"><%= samlTargets.ssoUrl %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= samlTargets.ssoUrl %>">Copy</button></td>
             </tr>
             <tr>
                 <td>Audience URI (SP Entity ID)</td>
-                <td><code data-copy="<%= oktaTargets.audienceUri %>"><%= oktaTargets.audienceUri %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.audienceUri %>">Copy</button></td>
+                <td><code data-copy="<%= samlTargets.audienceUri %>"><%= samlTargets.audienceUri %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= samlTargets.audienceUri %>">Copy</button></td>
             </tr>
             <tr>
                 <td>Name ID format</td>
@@ -49,23 +51,23 @@
         <% } else { %>
             <tr>
                 <td>SSO ACS URL Override</td>
-                <td><code><%= oktaTargets.acsUrlOverride %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.acsUrlOverride %>">Copy</button></td>
+                <td><code><%= samlTargets.acsUrlOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= samlTargets.acsUrlOverride %>">Copy</button></td>
             </tr>
             <tr>
                 <td>Audience URI Override</td>
-                <td><code><%= oktaTargets.audienceUriOverride %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.audienceUriOverride %>">Copy</button></td>
+                <td><code><%= samlTargets.audienceUriOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= samlTargets.audienceUriOverride %>">Copy</button></td>
             </tr>
             <tr>
                 <td>Recipient URL Override</td>
-                <td><code><%= oktaTargets.recipientOverride %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.recipientOverride %>">Copy</button></td>
+                <td><code><%= samlTargets.recipientOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= samlTargets.recipientOverride %>">Copy</button></td>
             </tr>
             <tr>
                 <td>Destination URL Override</td>
-                <td><code><%= oktaTargets.destinationOverride %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.destinationOverride %>">Copy</button></td>
+                <td><code><%= samlTargets.destinationOverride %></code></td>
+                <td><button class="btn-copy" data-copy-target="<%= samlTargets.destinationOverride %>">Copy</button></td>
             </tr>
         <% } %>
     </table>
@@ -76,7 +78,7 @@
             <tr><th>Name</th><th>Name format</th><th>Value</th><th></th></tr>
         </thead>
         <tbody>
-            <% oktaTargets.attrStatements.forEach(function(a) { %>
+            <% samlTargets.attrStatements.forEach(function(a) { %>
                 <tr>
                     <td><code><%= a.name %></code></td>
                     <td><%= a.format %></td>
@@ -96,55 +98,64 @@
         </p>
     <% } %>
 
-    <% if (flow === 'scim') { %>
-        <h4>Provisioning — SCIM 2.0 (Header Auth)</h4>
-        <table class="paste-table">
-            <tr>
-                <td>SCIM 2.0 Base URL</td>
-                <td><code><%= oktaTargets.scimBaseUrl %></code></td>
-                <td><button class="btn-copy" data-copy-target="<%= oktaTargets.scimBaseUrl %>">Copy</button></td>
-            </tr>
-            <tr>
-                <td>Authentication Mode</td>
-                <td><code>HTTP Header</code></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td>HTTP Header → Authorization</td>
-                <td>
-                    <% if (oktaTargets.scimToken) { %>
-                        <code class="token-mask" title="Click Show to reveal">
-                            <span data-token-mask><%= oktaTargets.scimToken.slice(0, 4) + '…' + oktaTargets.scimToken.slice(-4) %></span>
-                            <span data-token-clear style="display:none"><%= oktaTargets.scimToken %></span>
-                        </code>
-                    <% } else { %>
-                        <code class="muted">— not set; generate with <code>openssl rand -hex 32</code> and paste below</code>
-                    <% } %>
-                </td>
-                <td>
-                    <% if (oktaTargets.scimToken) { %>
-                        <button class="btn-copy"  data-copy-target="<%= oktaTargets.scimToken %>" data-copy-label="Copy">Copy</button>
-                        <button class="btn-show"  data-show-token>Show</button>
-                    <% } %>
-                </td>
-            </tr>
-            <tr>
-                <td>Unique identifier field for users</td>
-                <td><code>userName</code></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td>Import Groups</td>
-                <td><code>unchecked</code> — this app uses entitlements/roles, not groups</td>
-                <td></td>
-            </tr>
-        </table>
-        <p class="muted" style="font-size:12px;margin:8px 0 0">
-            Okta's <code>(Header Auth) Governance with SCIM 2.0</code> template sends the token
-            <strong>raw</strong> in the <code>Authorization</code> header (no <code>Bearer</code> prefix).
-            This server's <code>scim/auth.js</code> accepts both forms, so either works.
-        </p>
-    <% } %>
+    <h4>Provisioning — SCIM 2.0 (Header Auth)</h4>
+    <p class="muted" style="font-size:12px;margin:0 0 8px">
+        <% if (flow === 'byo') { %>
+            Optional but recommended. With provisioning enabled, the BYO Okta app pushes
+            users + grants into this server's <strong>BYO user namespace</strong> — separate
+            from the SCIM flow's namespace. Without it, BYO falls back to reading grants
+            straight from the SAML assertion at login time.
+        <% } else { %>
+            Required. The SCIM Okta app pushes users + grants into this server's
+            <strong>SCIM user namespace</strong>.
+        <% } %>
+    </p>
+    <table class="paste-table">
+        <tr>
+            <td>SCIM 2.0 Base URL</td>
+            <td><code><%= scimTargets.scimBaseUrl %></code></td>
+            <td><button class="btn-copy" data-copy-target="<%= scimTargets.scimBaseUrl %>">Copy</button></td>
+        </tr>
+        <tr>
+            <td>Authentication Mode</td>
+            <td><code>HTTP Header</code></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>HTTP Header → Authorization</td>
+            <td>
+                <% if (scimTargets.scimToken) { %>
+                    <code class="token-mask" title="Click Show to reveal">
+                        <span data-token-mask><%= scimTargets.scimToken.slice(0, 4) + '…' + scimTargets.scimToken.slice(-4) %></span>
+                        <span data-token-clear style="display:none"><%= scimTargets.scimToken %></span>
+                    </code>
+                <% } else { %>
+                    <code class="muted">— not set; generate with <code>openssl rand -hex 32</code> and paste below</code>
+                <% } %>
+            </td>
+            <td>
+                <% if (scimTargets.scimToken) { %>
+                    <button class="btn-copy"  data-copy-target="<%= scimTargets.scimToken %>" data-copy-label="Copy">Copy</button>
+                    <button class="btn-show"  data-show-token>Show</button>
+                <% } %>
+            </td>
+        </tr>
+        <tr>
+            <td>Unique identifier field for users</td>
+            <td><code>userName</code></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>Import Groups</td>
+            <td><code>unchecked</code> — this app uses entitlements/roles, not groups</td>
+            <td></td>
+        </tr>
+    </table>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">
+        Okta's <code>(Header Auth) Governance with SCIM 2.0</code> template sends the token
+        <strong>raw</strong> in the <code>Authorization</code> header (no <code>Bearer</code> prefix).
+        This server's <code>scim/auth.js</code> accepts both forms, so either works.
+    </p>
 </section>
 
 <!-- ─────────── Form (input from Okta) ─────────── -->
@@ -166,8 +177,8 @@
         <div class="form-row">
             <label>SP Issuer / Audience URI (must match the value above)
                 <input type="text" name="issuer" required
-                       placeholder="<%= flow === 'byo' ? oktaTargets.audienceUri : oktaTargets.audienceUriOverride %>"
-                       value="<%= profile ? profile.issuer : (flow === 'byo' ? oktaTargets.audienceUri : oktaTargets.audienceUriOverride) %>">
+                       placeholder="<%= flow === 'byo' ? samlTargets.audienceUri : samlTargets.audienceUriOverride %>"
+                       value="<%= profile ? profile.issuer : (flow === 'byo' ? samlTargets.audienceUri : samlTargets.audienceUriOverride) %>">
             </label>
             <label>Skip SAML attributes (comma-separated)
                 <input type="text" name="skipAttributes"
@@ -175,15 +186,13 @@
                        value="<%= profile ? (profile.skipAttributes || '') : 'firstName,lastName,email' %>">
             </label>
         </div>
-        <% if (flow === 'scim') { %>
-            <div class="form-row">
-                <label>SCIM bearer token
-                    <input type="text" name="scimToken"
-                           placeholder="generate with: openssl rand -hex 32"
-                           value="<%= profile ? (profile.scimToken || '') : '' %>">
-                </label>
-            </div>
-        <% } %>
+        <div class="form-row">
+            <label>SCIM bearer token <%= flow === 'byo' ? '(optional — leave blank to disable provisioning for this flow)' : '' %>
+                <input type="text" name="scimToken"
+                       placeholder="generate with: openssl rand -hex 32"
+                       value="<%= profile ? (profile.scimToken || '') : '' %>">
+            </label>
+        </div>
         <div class="form-row">
             <label>Bootstrap admin emails (comma-separated, optional)
                 <input type="text" name="adminEmails"
@@ -255,7 +264,6 @@
                     btn.classList.remove('btn-copy--ok');
                 }, 1500);
             }).catch(function() {
-                // fallback: select content of the adjacent code block
                 const code = btn.closest('tr')?.querySelector('code');
                 if (code) {
                     const range = document.createRange();

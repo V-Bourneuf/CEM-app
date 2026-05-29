@@ -1,17 +1,26 @@
 <%- include('_header') %>
 
 <h2>Provisioned users</h2>
-<p class="muted">Read-only. Users are created by Okta SCIM provisioning. Grants are managed by Okta Entitlement Management policies.</p>
+<p class="muted">
+    Read-only. Users are created by Okta SCIM provisioning. Each row's <strong>Flow</strong>
+    column shows which Okta app provisioned it — users from the BYO app and the SCIM app
+    live in separate namespaces and can have different grants.
+</p>
 
 <% if (users.length === 0) { %>
     <div class="empty-state">
-        No users yet. Configure SCIM provisioning in Okta and assign a user to this app.
-        <br><small>SCIM Base URL: <code><%= '/scim/v2' %></code></small>
+        No users yet. Configure SCIM provisioning in Okta and assign a user to one of the apps.
+        <br><small>SCIM Base URLs:
+        <% flows.forEach(function(f, i) { %>
+            <code>/<%= f %>/scim/v2</code><%= i < flows.length - 1 ? ' · ' : '' %>
+        <% }) %>
+        </small>
     </div>
 <% } else { %>
 <table class="data-table">
     <thead>
         <tr>
+            <th>Flow</th>
             <th>Username</th>
             <th>Name</th>
             <th>Email</th>
@@ -23,6 +32,7 @@
     <tbody>
     <% users.forEach(function(u) { %>
         <tr>
+            <td><span class="badge type-<%= u.flow === 'byo' ? 'role' : 'access' %>"><%= (u.flow || '').toUpperCase() %></span></td>
             <td><code><%= u.user_name %></code></td>
             <td><%= [u.given_name, u.family_name].filter(Boolean).join(' ') || '—' %></td>
             <td><%= u.email || '—' %></td>

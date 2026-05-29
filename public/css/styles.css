@@ -204,6 +204,23 @@ a:hover { text-decoration: underline; }
 .flow-card.disabled:hover { transform: none; box-shadow: var(--shadow-md); }
 .flow-card.disabled .flow-cta { color: var(--ink-muted); }
 
+.landing-admin-cta {
+    margin: 48px auto 0;
+    text-align: center;
+    max-width: 360px;
+}
+.landing-admin-cta .btn-okta { width: auto; padding: 12px 28px; }
+.landing-admin-note {
+    margin: 12px 0 0;
+    color: var(--ink-muted);
+    font-size: 13px;
+}
+.btn-okta--secondary {
+    background: var(--okta-navy);
+    color: #fff;
+}
+.btn-okta--secondary:hover { background: #0a1f4a; }
+
 .landing-footer {
     margin-top: 56px;
     color: var(--ink-muted);

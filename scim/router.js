@@ -1,30 +1,42 @@
 /**
- * SCIM 2.0 router — mounts service discovery, Users, Entitlements under /scim/v2.
- * Bearer auth required on all endpoints.
+ * SCIM 2.0 router factory — mounts service discovery, Users, Roles, Entitlements.
+ * Each flow (byo, scim) calls this to mount its own SCIM endpoint at
+ * /<flow>/scim/v2/*. Bearer auth uses each flow's own token.
  */
 
 const express = require('express');
-const { bearerAuth, setScimContentType, scimError } = require('./auth');
+const { buildBearerAuth, setScimContentType, scimError } = require('./auth');
+const buildUsersRouter        = require('./users');
+const buildGroupsRouter       = require('./groups');
+const buildRolesRouter        = require('./roles');
+const buildEntitlementsRouter = require('./entitlements');
+const buildSchemasRouter      = require('./schemas');
 
-const router = express.Router();
+function buildScimRouter({ flowKey, getScimToken }) {
+    if (!flowKey) throw new Error('buildScimRouter: flowKey is required');
+    if (!getScimToken) throw new Error('buildScimRouter: getScimToken is required');
 
-// Parse SCIM JSON: Okta uses application/scim+json AND application/json depending on op
-router.use(express.json({
-    limit: '1mb',
-    type: ['application/scim+json', 'application/json'],
-}));
+    const router = express.Router();
 
-router.use(setScimContentType);
-router.use(bearerAuth);
+    router.use(express.json({
+        limit: '1mb',
+        type: ['application/scim+json', 'application/json'],
+    }));
 
-router.use('/Users',        require('./users'));
-router.use('/Groups',       require('./groups'));        // empty stub — Okta sync probes this
-router.use('/Roles',        require('./roles'));
-router.use('/Entitlements', require('./entitlements'));
-router.use('/',             require('./schemas'));        // ServiceProviderConfig, ResourceTypes, Schemas
+    router.use(setScimContentType);
+    router.use(buildBearerAuth(getScimToken));
 
-router.all('*', (req, res) => {
-    res.status(404).json(scimError(404, `${req.method} ${req.originalUrl} is not implemented`));
-});
+    router.use('/Users',        buildUsersRouter(flowKey));
+    router.use('/Groups',       buildGroupsRouter(flowKey));
+    router.use('/Roles',        buildRolesRouter(flowKey));
+    router.use('/Entitlements', buildEntitlementsRouter(flowKey));
+    router.use('/',             buildSchemasRouter(flowKey));
 
-module.exports = router;
+    router.all('*', (req, res) => {
+        res.status(404).json(scimError(404, `${req.method} ${req.originalUrl} is not implemented`));
+    });
+
+    return router;
+}
+
+module.exports = buildScimRouter;

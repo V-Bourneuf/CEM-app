@@ -1,14 +1,20 @@
 /**
  * CEM App entrypoint.
  *
- * One server, two parallel SAML demos:
- *   /byo/*    → BYO entitlements via SAML attribute statements (Path A)
- *   /scim/*   → Governance with SCIM 2.0 (Path B)
+ * One server, two parallel SAML flows — each backed by its own Okta app
+ * with its own SAML SSO and its own SCIM provisioning endpoint:
  *
- * Plus shared infrastructure mounted on top:
- *   /scim/v2/*   → SCIM 2.0 protocol endpoints (used by the SCIM flow's Okta app)
- *   /admin/*     → Admin UI (entitlement catalog + integration management)
- *   /            → Landing page that lets users pick which flow to demo
+ *   /byo/*               → BYO entitlements flow (SAML attrs for grants + optional SCIM provisioning)
+ *   /byo/scim/v2/*       → SCIM 2.0 endpoint for the BYO Okta app
+ *   /scim/*              → Governance with SCIM 2.0 flow (SAML SSO + SCIM provisioning)
+ *   /scim/scim/v2/*      → SCIM 2.0 endpoint for the SCIM Okta app
+ *
+ * Plus shared infrastructure:
+ *   /admin/*             → Admin UI (entitlement catalog + integration management)
+ *   /                    → Landing page (flow picker + admin sign-in CTA)
+ *
+ * Each flow has an isolated user namespace — users provisioned by the BYO
+ * Okta app live separately from users provisioned by the SCIM Okta app.
  */
 
 const express = require('express');
@@ -26,6 +32,7 @@ const db = require('./db');
 db.open();
 
 const { getAdminVerdict } = require('./admin/auth');
+const buildScimRouter = require('./scim/router');
 const {
     loadProfile, setupProfileInteractive,
     setupBreakglassInteractive, loadBreakglass,
@@ -43,7 +50,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet({
-    contentSecurityPolicy: false,        // dashboards inline minor styles; tighten later if desired
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
 }));
 
@@ -75,9 +82,11 @@ function buildDashboardLocals(req, flowKey) {
         lastName:  req.user.lastName,
     };
 
-    // Look up the user in our DB (provisioned via SCIM). If found and has grants,
-    // those drive the dashboard. If not, fall back to whatever the SAML attributes carried.
-    const dbUser = db.Users.findByUserName(userData.email) || db.Users.findByEmail(userData.email);
+    // Look up the user in our DB scoped to this flow's namespace. If found
+    // and has grants, those drive the dashboard. Otherwise, fall back to
+    // whatever the SAML attributes carried (BYO flow's pure-SAML path).
+    const dbUser = db.Users.findByUserName(userData.email, flowKey)
+                || (userData.email && db.Users.findByEmail(userData.email, flowKey));
     const entitlements = { role: [], access: [] };
 
     if (dbUser) {
@@ -142,7 +151,7 @@ function appendSamlDebugLog(req) {
     }
 }
 
-// ---------- factory: build a router for a single flow (byo or scim) ----------
+// ---------- factory: build a SAML router for one flow ----------
 
 function buildFlowRouter(flowKey, profile) {
     const router = express.Router();
@@ -200,19 +209,17 @@ function buildPlaceholderFlowRouter(flowKey) {
     return router;
 }
 
-// ---------- mount: SCIM 2.0 protocol + admin (must come before /scim flow router) ----------
+// ---------- mount: shared admin (must come before any /<flow> routes) ----------
 
-app.use('/scim/v2', require('./scim/router'));
-app.use('/admin',   require('./admin/router'));
+app.use('/admin', require('./admin/router'));
 
-// ---------- mount: flow routers ----------
+// ---------- mount: per-flow SCIM + SAML routers ----------
 
 const profiles = {};
 for (const flowKey of KNOWN_FLOWS) {
     const profile = loadProfile(flowKey);
     if (profile) {
         profiles[flowKey] = profile;
-        if (profile.scimToken) process.env.SCIM_TOKEN = profile.scimToken;
         // Both profiles can declare adminEmails; merge them into one allowlist.
         if (profile.adminEmails) {
             const merged = new Set((process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean));
@@ -220,11 +227,24 @@ for (const flowKey of KNOWN_FLOWS) {
             process.env.ADMIN_EMAILS = [...merged].join(',');
         }
         if (profile.skipAttributes) {
-            // Both profiles can declare skip lists; union them.
             const merged = new Set((process.env.SKIP_ATTRIBUTES || '').split(',').map(s => s.trim()).filter(Boolean));
             for (const a of profile.skipAttributes.split(',').map(s => s.trim()).filter(Boolean)) merged.add(a);
             process.env.SKIP_ATTRIBUTES = [...merged].join(',');
         }
+
+        // SCIM endpoint must be mounted BEFORE the flow router so /<flow>/scim/v2/*
+        // beats the flow router's catch-all routes.
+        const flowKeyClosure = flowKey;
+        app.use(`/${flowKey}/scim/v2`, buildScimRouter({
+            flowKey,
+            // Re-read on every request so admin profile edits + restart aren't required for
+            // token rotation. (Restart is still required to swap the SAML strategy.)
+            getScimToken: () => {
+                const p = loadProfile(flowKeyClosure);
+                return p ? (p.scimToken || '') : '';
+            },
+        }));
+
         app.use(`/${flowKey}`, buildFlowRouter(flowKey, profile));
     } else {
         app.use(`/${flowKey}`, buildPlaceholderFlowRouter(flowKey));
@@ -241,7 +261,6 @@ app.get('/', (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    // Clear both SAML (passport) auth AND any breakglass admin session.
     if (req.session) delete req.session.breakglass;
     req.logout(() => {
         if (req.session && req.session.destroy) {
@@ -275,15 +294,18 @@ app.get('/logout', (req, res) => {
         console.log('Flows:');
         for (const k of KNOWN_FLOWS) {
             console.log(`  /${k.padEnd(5)} → ${status(k)}`);
+            if (profiles[k]) {
+                const tokenStatus = profiles[k].scimToken ? '✓ token set' : '✗ no token (provisioning disabled)';
+                console.log(`           SCIM endpoint: ${PUBLIC_URL}/${k}/scim/v2  (${tokenStatus})`);
+            }
         }
         console.log('');
-        console.log(`SCIM endpoint:    ${PUBLIC_URL}/scim/v2  (used by the /scim flow's Okta app)`);
         const adminMode = process.env.ADMIN_EMAILS
             ? `Okta SAML allowlist — ${process.env.ADMIN_EMAILS}`
             : 'entitlement-based only (assign App Admin in Okta IGA → SCIM PATCH)';
         const breakglass = loadBreakglass();
-        console.log(`Admin UI:         ${PUBLIC_URL}/admin   (auth: ${adminMode})`);
-        console.log(`                    + breakglass: ${breakglass ? '✓ ' + breakglass.username : '✗ NOT configured (run: node server.js --setup breakglass)'}`);
+        console.log(`Admin UI:  ${PUBLIC_URL}/admin   (auth: ${adminMode})`);
+        console.log(`             + breakglass: ${breakglass ? '✓ ' + breakglass.username : '✗ NOT configured (run: node server.js --setup breakglass)'}`);
         console.log('');
     });
 })().catch(err => {

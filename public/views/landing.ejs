@@ -13,8 +13,8 @@
     <main class="landing">
         <header class="landing-hero">
             <span class="eyebrow">Okta CEM Reference App</span>
-            <h1>Two paths to entitlement governance.</h1>
-            <p>This app implements the same end goal — Okta governing access to a custom application — through two distinct integration models. Pick a flow to demo.</p>
+            <h1>Two flows, two user namespaces.</h1>
+            <p>This app implements the same end goal — Okta governing access to a custom application — through two distinct integration models. Each flow is backed by its own Okta app and provisions its own users via SCIM. Pick a flow to demo.</p>
         </header>
 
         <section class="flow-grid">
@@ -22,13 +22,13 @@
             <a class="flow-card theme-byo <%= byo.configured ? '' : 'disabled' %>"
                href="<%= byo.configured ? '/byo' : '#' %>"
                aria-disabled="<%= !byo.configured %>">
-                <span class="flow-tag">Path A · BYO</span>
+                <span class="flow-tag">BYO</span>
                 <h2>BYO Entitlements</h2>
-                <p class="flow-summary">Plain SAML 2.0 + IGA-managed entitlement attributes. Catalog values live in Okta, grants flow at SAML login. No SCIM provisioning.</p>
+                <p class="flow-summary">Plain SAML 2.0 + IGA-managed entitlement attributes. Catalog values live in Okta and grants flow at SAML login. Optional SCIM provisioning into the BYO user namespace.</p>
                 <ul>
                     <li>Okta IGA Entitlement Management defines attribute values</li>
                     <li>SAML attribute statements <code>appuser.access</code> + <code>appuser.role</code></li>
-                    <li>App reads grants from <code>req.user.attributes</code></li>
+                    <li>SCIM endpoint at <code>/byo/scim/v2</code> for the BYO Okta app</li>
                 </ul>
                 <span class="flow-cta">
                     <%= byo.configured ? 'Try the BYO demo →' : 'Not configured — add via /admin/integrations' %>
@@ -39,12 +39,12 @@
             <a class="flow-card theme-scim <%= scim.configured ? '' : 'disabled' %>"
                href="<%= scim.configured ? '/scim' : '#' %>"
                aria-disabled="<%= !scim.configured %>">
-                <span class="flow-tag">Path B · SCIM</span>
+                <span class="flow-tag">SCIM</span>
                 <h2>Governance with SCIM 2.0</h2>
-                <p class="flow-summary">Okta IGA discovers the catalog from the app, and SCIM-PATCHes user grants in real time. Bidirectional, full IGA features.</p>
+                <p class="flow-summary">Okta IGA discovers the catalog from the app and SCIM-PATCHes user grants in real time. Bidirectional, full IGA features. Provisions into the SCIM user namespace.</p>
                 <ul>
-                    <li>Okta imports <code>/scim/v2/Roles</code> + <code>/scim/v2/Entitlements</code></li>
-                    <li>App receives grants via SCIM PATCH on <code>/Users/{id}</code></li>
+                    <li>Okta imports <code>/scim/scim/v2/Roles</code> + <code>/scim/scim/v2/Entitlements</code></li>
+                    <li>App receives grants via SCIM PATCH on <code>/scim/scim/v2/Users/{id}</code></li>
                     <li>Dashboard reads grants from the local DB</li>
                 </ul>
                 <span class="flow-cta">
@@ -53,8 +53,18 @@
             </a>
         </section>
 
+        <section class="landing-admin-cta">
+            <a href="/admin/login" class="btn-okta btn-okta--secondary">
+                Sign in to admin
+                <svg class="btn-okta__chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M5.5 3l5 5-5 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
+            <p class="landing-admin-note">Manage the entitlement catalog, SAML integrations, and provisioned users.</p>
+        </section>
+
         <p class="landing-footer">
-            Hosted at <code><%= host %></code>. Manage integrations at <code>/admin/integrations</code>.
+            Hosted at <code><%= host %></code>.
         </p>
     </main>
 </body>

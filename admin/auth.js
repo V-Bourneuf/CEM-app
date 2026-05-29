@@ -1,28 +1,21 @@
 /**
  * Admin authorization decision — pure function over the SAML session.
  *
- * Three paths to admin (any one suffices):
+ * Four ways to be admin (any one suffices):
  *
+ *   0. Breakglass — local username + password (bypasses SAML entirely).
  *   1. Bootstrap allowlist — email matches a value in the ADMIN_EMAILS env
- *      var (or the active SAML profile's adminEmails field, which is loaded
- *      into ADMIN_EMAILS at startup). Doesn't require a DB record. Intended
- *      for the operator's first/initial admin and emergency access.
- *
+ *      var (or the active SAML profiles' adminEmails fields, unioned at
+ *      startup). Doesn't require a DB record. For first/initial admin and
+ *      emergency access.
  *   2. SAML assertion-based — the SAML attributes the IdP sent on this
  *      session contain a `role` or `access` value matching an entitlement
- *      in the local catalog flagged grants_admin = 1. Used by Path A
- *      (BYO entitlements via SAML attribute statements) — the user isn't
- *      provisioned via SCIM, so we can't look at their DB row, but the
- *      assertion itself tells us they hold the admin-granting entitlement.
- *
- *   3. SCIM grant-based — the user is provisioned in our DB and holds at
- *      least one entitlement flagged grants_admin = 1. Used by Path B
- *      (Governance with SCIM 2.0) — Okta IGA pushes the App Admin grant
- *      via SCIM PATCH and the user becomes admin without operator action.
- *
- * This module returns a verdict object so callers can render different UI
- * (e.g., the public dashboard shows an "Admin →" chip when the verdict is
- * positive; the admin gate redirects to the denied page otherwise).
+ *      in the local catalog flagged grants_admin = 1. The BYO flow uses
+ *      this when a user is signed in but hasn't been SCIM-provisioned yet.
+ *   3. SCIM grant-based — the user is provisioned in the DB (in the same
+ *      flow they signed in through) and holds at least one entitlement
+ *      flagged grants_admin = 1. Used by both flows when SCIM provisioning
+ *      is active.
  */
 
 const { Users, Grants, Entitlements } = require('../db');
@@ -50,7 +43,6 @@ function samlAttributeValues(req) {
 
 function getAdminVerdict(req) {
     // 0. Breakglass session — local username + password (no SAML required).
-    //    Bypasses all the SAML-based paths below; always-on safety net.
     if (req.session && req.session.breakglass && req.session.breakglass.username) {
         return { ok: true, via: 'breakglass', email: req.session.breakglass.username };
     }
@@ -74,10 +66,15 @@ function getAdminVerdict(req) {
         }
     }
 
-    // 3. SCIM grant-based
-    const dbUser = Users.findByUserName(email) || (email && Users.findByEmail(email));
-    if (dbUser && Grants.hasAdminGrant(dbUser.id)) {
-        return { ok: true, via: 'entitlement', email, dbUserId: dbUser.id };
+    // 3. SCIM grant-based — scope the lookup to the flow this session
+    //    authenticated through. A user provisioned by the BYO Okta app cannot
+    //    elevate via the SCIM Okta app's entitlement catalog (or vice versa).
+    const flow = req.session && req.session.authFlow;
+    if (flow && email) {
+        const dbUser = Users.findByUserName(email, flow) || Users.findByEmail(email, flow);
+        if (dbUser && Grants.hasAdminGrant(dbUser.id)) {
+            return { ok: true, via: 'entitlement', email, dbUserId: dbUser.id, flow };
+        }
     }
 
     return { ok: false, reason: 'not-admin', email };

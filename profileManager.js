@@ -2,8 +2,8 @@
  * Profile manager — load + save SAML profiles for each flow.
  *
  * The CEM App runs two parallel demos in one server:
- *   • profiles/byo/   → BYO entitlements via SAML attribute statements (path A)
- *   • profiles/scim/  → Governance with SCIM 2.0 (path B)
+ *   • profiles/byo/   → BYO entitlements (SAML attrs + optional SCIM provisioning)
+ *   • profiles/scim/  → Governance with SCIM 2.0 (SAML SSO + SCIM provisioning)
  *
  * Each profile is a directory under ./profiles/<name>/ containing:
  *   config.json   { entryPoint, issuer, skipAttributes, scimToken, adminEmails }
@@ -150,7 +150,7 @@ async function setupProfileInteractive(name) {
         }
 
         const flowDescription = name === 'byo'
-            ? "BYO entitlements: SAML attribute-statement-based (no SCIM)"
+            ? "BYO entitlements: SAML attribute statements + optional SCIM provisioning"
             : "Governance with SCIM 2.0: SAML SSO + SCIM provisioning";
         console.log(`Flow: ${flowDescription}\n`);
 
@@ -162,10 +162,12 @@ async function setupProfileInteractive(name) {
                                                  'firstName,lastName,email');
         const certPath       = await prompt.askValidated('Path to signing certificate (.cert/.pem)', validators.certPath);
 
-        let scimToken = '';
-        if (name === 'scim') {
-            scimToken = await prompt.ask('SCIM bearer token (generate with `openssl rand -hex 32`)', '');
-        }
+        // Both flows now have a SCIM endpoint at /<flow>/scim/v2; the token is required
+        // for SCIM to authenticate Okta. BYO can omit it if you want SAML-only behavior.
+        const scimPrompt = name === 'byo'
+            ? 'SCIM bearer token (generate with `openssl rand -hex 32`, blank to skip provisioning)'
+            : 'SCIM bearer token (generate with `openssl rand -hex 32`)';
+        const scimToken = await prompt.ask(scimPrompt, '');
 
         const adminEmails = await prompt.ask(
             'Admin emails — bootstrap allowlist for /admin (comma-separated, blank for entitlement-only)',
