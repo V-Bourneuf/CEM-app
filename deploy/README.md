@@ -125,32 +125,59 @@ You need **two separate Okta app integrations**, one per flow.
 
 ### Updating the app
 
-From your laptop:
+The canonical "ship an iteration" flow is the **`cem-ship` Claude Code skill** at
+`.claude/skills/cem-ship/SKILL.md` (project-local, gitignored). Configure it once
+by copying `deploy/.deploy-target.example` → `deploy/.deploy-target` and filling
+in the EC2 host, key path, app dir, system user, and service name. After that,
+saying "ship it" / "iterate" / "deploy" in Claude Code triggers commit + push +
+EC2 deploy + smoke checks in one shot.
+
+Manual equivalent (use only if Claude isn't available):
 ```bash
-rsync -av --exclude='.git' --exclude='node_modules' --exclude='data/' \
-  --exclude='profiles/' ./ ec2-user@<host>:/tmp/cemapp/
-ssh ec2-user@<host> 'sudo rsync -a --delete --exclude=node_modules --exclude=data --exclude=profiles --exclude=".env*" --exclude=saml-debug.log /tmp/cemapp/ /opt/cemapp/ \
-  && sudo -u cemapp -- sh -c "cd /opt/cemapp && npm ci --omit=dev && npm rebuild better-sqlite3" \
-  && sudo systemctl restart cemapp'
+# Variables — match deploy/.deploy-target
+EC2_HOST=ec2-XX-XX-XX-XX.compute-1.amazonaws.com
+EC2_KEY=~/Downloads/CEM.pem
+APP_DIR=/opt/opsapp        # the live deploy on the reference instance
+APP_USER=opsapp
+SERVICE=opsapp.service
+
+rsync -av -e "ssh -i $EC2_KEY" --exclude='.git' --exclude='node_modules' \
+  --exclude='data/' --exclude='profiles/' --exclude='saml-debug.log' \
+  --exclude='.env*' --exclude='.claude' \
+  ./ ec2-user@$EC2_HOST:/tmp/$(basename $APP_DIR)/
+
+ssh -i $EC2_KEY ec2-user@$EC2_HOST "set -e
+  sudo rsync -a --delete --exclude=node_modules --exclude=data --exclude=profiles \
+    --exclude='.env*' --exclude=saml-debug.log /tmp/$(basename $APP_DIR)/ $APP_DIR/
+  sudo chown -R $APP_USER:$APP_USER $APP_DIR
+  sudo runuser -u $APP_USER -- bash -c 'cd $APP_DIR && npm ci --omit=dev && npm rebuild better-sqlite3'
+  sudo systemctl restart $SERVICE"
 ```
+
+> **Note on `APP_DIR` / `APP_USER`:** The historical doc referenced `/opt/cemapp`
+> and a `cemapp` system user. The reference instance at `cem.salteau.ca` actually
+> runs as `opsapp` from `/opt/opsapp` under `opsapp.service`. New instances
+> bootstrapped via `setup-ec2.sh` may use either — check `systemctl cat <service>`
+> on your instance and update `deploy/.deploy-target` accordingly.
 
 ### Backups
 
-The DB is at `/opt/cemapp/data/cemapp.db`. Back it up with cron:
+The DB lives at `$APP_DIR/data/cemapp.db`. Back it up with cron:
 ```bash
-sudo crontab -u cemapp -e
-# add: 0 4 * * * sqlite3 /opt/cemapp/data/cemapp.db ".backup /opt/cemapp/data/backup-$(date +\%F).db"
+sudo crontab -u $APP_USER -e
+# add: 0 4 * * * sqlite3 $APP_DIR/data/cemapp.db ".backup $APP_DIR/data/backup-$(date +\%F).db"
 ```
 
 ### Rotating the Okta SCIM token
 
-Edit the SCIM profile:
-```bash
-sudo -u cemapp vi /opt/cemapp/profiles/scim/config.json
-# update "scimToken" value
-sudo systemctl restart cemapp
-# Then update the matching value in Okta admin → Provisioning → API Integration
-```
+Each flow has its own token in `$APP_DIR/profiles/<flow>/config.json`. Either:
+- Edit via the admin UI: `/admin/integrations/<flow>/edit` → update **SCIM bearer token** → Save. The router re-reads the token on every SCIM request, so no restart is needed for token rotation.
+- Or edit the file directly:
+  ```bash
+  sudo -u $APP_USER vi $APP_DIR/profiles/scim/config.json   # or profiles/byo/
+  # update "scimToken" value
+  ```
+- Then update the matching value in **Okta admin → Provisioning → API Integration** for the corresponding app.
 
 ### Adding admin users
 

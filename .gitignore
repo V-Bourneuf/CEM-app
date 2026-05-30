@@ -12,3 +12,6 @@ saml-debug.log
 .DS_Store
 .vscode/
 .claude/
+
+# Deploy target (host + key path) — copy from deploy/.deploy-target.example
+deploy/.deploy-target

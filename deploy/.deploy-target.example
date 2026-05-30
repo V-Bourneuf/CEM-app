@@ -1,0 +1,14 @@
+# Deploy target for `cem-ship` skill.
+# Copy to `deploy/.deploy-target` (gitignored) and fill in your values.
+
+EC2_HOST=ec2-34-200-47-107.compute-1.amazonaws.com
+EC2_USER=ec2-user
+EC2_KEY=~/Downloads/CEM.pem
+
+# Server-side
+APP_DIR=/opt/opsapp
+APP_USER=opsapp
+SERVICE=opsapp.service
+
+# Public URL (used for smoke checks)
+PUBLIC_URL=https://cem.salteau.ca
