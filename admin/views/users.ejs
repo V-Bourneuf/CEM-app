@@ -2,10 +2,13 @@
 
 <h2>Provisioned users</h2>
 <p class="muted">
-    Read-only. Users are created by Okta SCIM provisioning. Each row's <strong>Flow</strong>
+    Users are created by Okta SCIM provisioning. Each row's <strong>Flow</strong>
     column shows which Okta app provisioned it — users from the BYO app and the SCIM app
     live in separate namespaces and can have different grants.
 </p>
+
+<% if (flash) { %><div class="flash success"><%= flash %></div><% } %>
+<% if (error) { %><div class="flash error">⚠️ <%= error %></div><% } %>
 
 <% if (users.length === 0) { %>
     <div class="empty-state">
@@ -27,6 +30,7 @@
             <th>Status</th>
             <th>Grants</th>
             <th>Last updated</th>
+            <th></th>
         </tr>
     </thead>
     <tbody>
@@ -47,6 +51,13 @@
                 <% } %>
             </td>
             <td class="muted"><%= u.updated_at %></td>
+            <td class="actions">
+                <form method="post" action="/admin/users/<%= u.id %>/delete"
+                      onsubmit="return confirm('Delete &quot;<%= u.user_name %>&quot; (<%= u.flow %>) from the local DB?\n\nThis removes the user row and all grants. Okta still has them assigned and may re-provision on the next sync — to remove fully, also unassign in Okta admin.');"
+                      style="margin:0;display:inline">
+                    <button type="submit" class="btn-link btn-link--danger" title="Delete this user from the local DB">Delete</button>
+                </form>
+            </td>
         </tr>
     <% }) %>
     </tbody>

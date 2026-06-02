@@ -93,6 +93,16 @@ router.post('/logout', (req, res) => {
     res.redirect('/admin/login?flash=' + encodeURIComponent('Signed out of /admin.'));
 });
 
+// First configured SAML flow, used to auto-trigger SP-initiated login when an
+// unauthenticated request hits /admin or /admin/<anything>. /admin/login is still
+// reachable by direct navigation for breakglass and explicit flow choice.
+function pickAuthFlow() {
+    for (const k of KNOWN_FLOWS) {
+        if (loadProfile(k)) return k;
+    }
+    return null;
+}
+
 // ---------- admin gate (everything below requires admin) ----------
 
 router.use((req, res, next) => {
@@ -102,7 +112,15 @@ router.use((req, res, next) => {
         return next();
     }
     if (verdict.reason === 'unauthenticated') {
-        // Bounce to the login page (which carries both SAML and breakglass options).
+        // Auto-trigger the first configured flow's SAML SSO. Stash the original
+        // URL so the flow callback returns the user here after auth instead of
+        // dumping them on /<flow>/dashboard.
+        const flow = pickAuthFlow();
+        if (flow) {
+            req.session.postLoginRedirect = req.originalUrl;
+            return res.redirect(`/${flow}/auth/saml`);
+        }
+        // No flow configured at all — fall back to the manual login page (breakglass).
         return res.redirect('/admin/login');
     }
     return deniedPage(res, 403,
@@ -209,7 +227,26 @@ router.get('/users', (req, res) => {
         ...u,
         grants: Grants.listForUser(u.id),
     }));
-    renderAdmin(res, 'users.ejs', { page: 'users', users, flows: KNOWN_FLOWS });
+    renderAdmin(res, 'users.ejs', {
+        page:  'users',
+        users,
+        flows: KNOWN_FLOWS,
+        flash: req.query.flash || null,
+        error: req.query.error || null,
+    });
+});
+
+// Local delete only. Okta still has the user assigned and may re-create
+// them on the next SCIM sync — to remove fully, also unassign in Okta admin.
+// FK on user_entitlements has ON DELETE CASCADE, so grants get cleaned up.
+router.post('/users/:id/delete', (req, res) => {
+    const u = Users.findById(req.params.id);
+    if (!u) {
+        return res.redirect('/admin/users?error=' + encodeURIComponent('User not found'));
+    }
+    Users.delete(req.params.id);
+    res.redirect('/admin/users?flash=' +
+        encodeURIComponent(`Deleted ${u.user_name} (${u.flow}). Okta may re-provision on the next sync.`));
 });
 
 // ---------- catalog profiles ----------

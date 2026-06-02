@@ -183,6 +183,14 @@ function buildFlowRouter(flowKey, profile) {
             appendSamlDebugLog(req);
             if (!req.user) return res.redirect(`/${flowKey}/auth/saml`);
             req.session.authFlow = flowKey;
+            // Honor a stashed return URL set by /admin auto-trigger (admin/router.js).
+            // Only allow same-origin relative paths to prevent open-redirect:
+            // must start with "/" but not "//" or "/\" (which would be protocol-relative).
+            const target = req.session.postLoginRedirect;
+            delete req.session.postLoginRedirect;
+            if (typeof target === 'string' && /^\/[^/\\]/.test(target)) {
+                return res.redirect(target);
+            }
             res.redirect(`/${flowKey}/dashboard`);
         }
     );
