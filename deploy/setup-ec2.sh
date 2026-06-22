@@ -77,6 +77,29 @@ sudo -u cemapp -- env HOME="$APP_DIR" sh -c "cd '$APP_DIR' && npm ci --omit=dev 
 # Rebuild native bindings against the system node
 sudo -u cemapp -- sh -c "cd '$APP_DIR' && npm rebuild better-sqlite3"
 
+# ---------- 3b. Runtime dirs + env file ----------
+echo "==> Creating runtime directories and env file"
+
+# data/ and saml-debug.log must exist before the service starts because
+# the systemd unit declares them in ReadWritePaths; if they are absent the
+# namespace mount fails with NAMESPACE/226 and the service never starts.
+mkdir -p "$APP_DIR/data"
+touch "$APP_DIR/saml-debug.log"
+chown cemapp:cemapp "$APP_DIR/data" "$APP_DIR/saml-debug.log"
+
+# .env.production is declared as EnvironmentFile in the unit; a missing file
+# causes "Failed to load environment files" and an immediate service failure.
+if [ ! -f "$APP_DIR/.env.production" ]; then
+    cat > "$APP_DIR/.env.production" << ENVEOF
+NODE_ENV=production
+PORT=1337
+PUBLIC_URL=https://$DOMAIN
+SESSION_SECRET=$(openssl rand -hex 32)
+ENVEOF
+    chown cemapp:cemapp "$APP_DIR/.env.production"
+    chmod 600 "$APP_DIR/.env.production"
+fi
+
 # ---------- 4. systemd + nginx ----------
 echo "==> Installing systemd unit"
 cp "$APP_DIR/deploy/cemapp.service" /etc/systemd/system/cemapp.service
